@@ -463,14 +463,9 @@ namespace LanternExtractor.EQ.Wld.Fragments
             return false;
         }
 
-        public mat4 GetBoneMatrix(int boneIndex, string animName, int frame)
+        public mat4 GetBoneMatrix(int boneIndex, Dictionary<string, TrackFragment> animationTracks, int frame)
         {
-            if (!Animations.ContainsKey(animName))
-            {
-                return mat4.Identity;
-            }
-
-            if (frame < 0 || frame >= Animations[animName].FrameCount)
+            if (frame < 0)
             {
                 return mat4.Identity;
             }
@@ -481,12 +476,12 @@ namespace LanternExtractor.EQ.Wld.Fragments
 
             while (currentBone != null)
             {
-                if (!Animations[animName].TracksCleanedStripped.ContainsKey(currentBone.CleanedName))
+                if (!animationTracks.ContainsKey(currentBone.CleanedName))
                 {
                     break;
                 }
                 
-                var track = Animations[animName].TracksCleanedStripped[currentBone.CleanedName].TrackDefFragment;
+                var track = animationTracks[currentBone.CleanedName].TrackDefFragment;
                 int realFrame = frame >= track.Frames.Count ? 0 : frame;
                 currentBone = Skeleton[boneIndex].Parent;
                 

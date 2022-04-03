@@ -26,13 +26,15 @@ namespace LanternExtractor.EQ.Wld.Helpers
             }
 
             var animation = skeleton.Animations[animName];
+            if (frame >= animation.FrameCount) return originalVertices;
+            
             var tracks = isCharacterAnimation ? animation.TracksCleanedStripped : animation.TracksCleaned;
 
             if (singularBoneIndex > -1)
             {
                 var bone = skeleton.Skeleton[singularBoneIndex].CleanedName;
                 if (!tracks.ContainsKey(bone)) return originalVertices;
-                var modelMatrix = skeleton.GetBoneMatrix(singularBoneIndex, animName, frame);
+                var modelMatrix = skeleton.GetBoneMatrix(singularBoneIndex, tracks, frame);
                 originalVertices.AddRange(ShiftMeshVerticesWithIndices(
                     0, mesh.Vertices.Count - 1, mesh, modelMatrix));
 
@@ -46,7 +48,7 @@ namespace LanternExtractor.EQ.Wld.Helpers
 
                 if (!tracks.ContainsKey(bone)) continue;
 
-                var modelMatrix = skeleton.GetBoneMatrix(boneIndex, animName, frame);
+                var modelMatrix = skeleton.GetBoneMatrix(boneIndex, tracks, frame);
 
                 originalVertices.AddRange(ShiftMeshVerticesWithIndices(
                     mobVertexPiece.Value.Start,

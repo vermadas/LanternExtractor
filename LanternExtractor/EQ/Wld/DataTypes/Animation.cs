@@ -26,13 +26,13 @@ namespace LanternExtractor.EQ.Wld.DataTypes
                 return boneName;
             }
             
-            var cleanedName = boneName.Replace("_DAG", string.Empty).ToLower();
+            var cleanedName = boneName.ToLower().Replace("_dag", string.Empty);
             return cleanedName.Length == 0 ? "root" : cleanedName;
         }
         
         public static string CleanBoneAndStripBase(string boneName, string modelBase)
         {
-            var cleanedName = boneName.Replace("_DAG", string.Empty).ToLower();
+            var cleanedName = boneName.ToLower().Replace("_dag", string.Empty);
 
             if (cleanedName.StartsWith(modelBase))
             {

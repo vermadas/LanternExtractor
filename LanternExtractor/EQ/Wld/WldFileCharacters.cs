@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using LanternExtractor.EQ.Pfs;
 using LanternExtractor.EQ.Wld.Fragments;
 using LanternExtractor.EQ.Wld.Helpers;
@@ -14,7 +15,7 @@ namespace LanternExtractor.EQ.Wld
         public Dictionary<string, string> AnimationSources = new Dictionary<string, string>();
         
         public WldFileCharacters(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
-            WldFile wldToInject = null) : base(wldFile, zoneName, type, logger, settings, wldToInject)
+            List<WldFile> wldsToInject = null) : base(wldFile, zoneName, type, logger, settings, wldsToInject)
         {
             ParseAnimationSources();
         }
@@ -83,17 +84,22 @@ namespace LanternExtractor.EQ.Wld
             foreach (var list in materialLists)
             {
                 string materialListModelName = FragmentNameCleaner.CleanName(list);
+                var materialListContainsRobe = list.Materials.Where(
+                    m => m.Name.StartsWith("clk", StringComparison.InvariantCultureIgnoreCase))
+                    .Any();
 
                 foreach (var material in GetFragmentsOfType<Material>())
                 {
-                    if (material.IsHandled)
+                    string materialName = FragmentNameCleaner.CleanName(material);
+                    var materialIsRobe = materialName.StartsWith("clk", StringComparison.InvariantCultureIgnoreCase);
+                    
+                    if (material.IsHandled && !materialIsRobe)
                     {
                         continue;
                     }
 
-                    string materialName = FragmentNameCleaner.CleanName(material);
-
-                    if (materialName.StartsWith(materialListModelName))
+                    if ((materialListContainsRobe && materialIsRobe)
+                        || materialName.StartsWith(materialListModelName))
                     {
                         list.AddVariant(material, _logger);
                     }
@@ -122,12 +128,15 @@ namespace LanternExtractor.EQ.Wld
 
             if (skeletons.Count == 0)
             {
-                if (_wldToInject == null)
+                if (_wldsToInject == null || !_wldsToInject.Any())
                 {
                     return;
                 }
-                
-                skeletons = _wldToInject.GetFragmentsOfType<SkeletonHierarchy>();
+
+                foreach (var wldToInject in _wldsToInject)
+                {
+                    skeletons.AddRange(wldToInject.GetFragmentsOfType<SkeletonHierarchy>());
+                }
             }
             
             if (skeletons.Count == 0)

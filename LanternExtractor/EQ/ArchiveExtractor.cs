@@ -1,7 +1,11 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
 using LanternExtractor.EQ.Pfs;
 using LanternExtractor.EQ.Sound;
 using LanternExtractor.EQ.Wld;
+using LanternExtractor.EQ.Wld.Exporters;
 using LanternExtractor.EQ.Wld.Helpers;
 using LanternExtractor.Infrastructure;
 using LanternExtractor.Infrastructure.Logger;
@@ -77,6 +81,113 @@ namespace LanternExtractor.EQ
 
             MissingTextureFixer.Fix(archiveName);
 
+        }
+
+        public static void ExportSinglePlayerCharacterGltf(string pcEquipmentPath, string rootFolder, ILogger logger, Settings settings)
+        {
+            var pcEquipmentText = File.ReadAllText(pcEquipmentPath);
+            var pcEquipment = JsonSerializer.Deserialize<PlayerCharacterModel>(pcEquipmentText);
+            if (!pcEquipment.Validate(out var errorMessage))
+            {
+                logger.LogError($"Cannot export player character - {errorMessage}");
+                return;
+            }
+
+            string mainChrFile;
+            int[] additionalChrFileIndices; 
+            if (pcEquipment.RaceGender.StartsWith("IK", System.StringComparison.InvariantCultureIgnoreCase))
+            {
+                mainChrFile = "global4_chr";
+                additionalChrFileIndices = new int[] { 0, 2, 3 };
+            }
+            else
+            {
+                mainChrFile = "global_chr";
+                additionalChrFileIndices = new int[] { 2, 3, 4 };
+            }
+            var globalChrPath = Path.Combine(settings.EverQuestDirectory, $"{mainChrFile}.s3d");
+            var chrS3dArchive = new PfsArchive(globalChrPath, logger);
+
+            if (!chrS3dArchive.Initialize())
+            {
+                logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + globalChrPath);
+                return;
+            }
+
+            var wldFileName = mainChrFile + LanternStrings.WldFormatExtension;
+            var wldFileInArchive = chrS3dArchive.GetFile(wldFileName);
+
+            var wldChrFilesToInject = new List<WldFile>();
+            foreach (var i in additionalChrFileIndices)
+            {
+                var additionalChrFile = i == 0 ? "global_chr" : $"global{i}_chr";
+                var additionalChrPath = Path.Combine(settings.EverQuestDirectory, $"{additionalChrFile}.s3d");
+                var additionalS3dArchive = new PfsArchive(additionalChrPath, logger);
+
+                if (!additionalS3dArchive.Initialize())
+                {
+                    logger.LogError("Failed to initialize PFS archive at path: " + additionalChrPath);
+                    return;
+                }
+
+                var additionalWldFileName = additionalChrFile + LanternStrings.WldFormatExtension;
+                var additionalWldFile = additionalS3dArchive.GetFile(additionalWldFileName);
+
+                var wldFileToInject = new WldFileCharacters(additionalWldFile, additionalChrFile, WldType.Characters,
+                    logger, settings);
+                wldFileToInject.Initialize(rootFolder, false);
+                wldChrFilesToInject.Add(wldFileToInject);
+            }
+            var actorName = pcEquipment.RaceGender;
+            var wldChrFile = new WldFileCharacters(wldFileInArchive, actorName, WldType.Characters,
+                logger, settings, wldChrFilesToInject);
+
+            wldChrFile.Initialize(rootFolder, false);
+            chrS3dArchive.FilenameChanges = wldChrFile.FilenameChanges;
+            var includeList = wldChrFile.GetActorImageNames(actorName).ToList();
+            var exportFolder = Path.Combine(rootFolder, actorName, "Textures");
+            WriteWldTextures(chrS3dArchive, wldChrFile, exportFolder, logger, includeList);
+            (WldFileEquipment, WldFileEquipment) wldEqFiles = (null, null);
+            if (!string.IsNullOrEmpty(pcEquipment.Primary) || !string.IsNullOrEmpty(pcEquipment.Secondary))
+            {
+                var eqFiles = new string[] { "gequip", "gequip2" };
+                for (int i = 0; i < 2; i++)
+                {
+                    var eqFile = eqFiles[i];
+                    var eqFilePath = Path.Combine(settings.EverQuestDirectory, $"{eqFile}.s3d");
+                    var eqS3dArchive = new PfsArchive(eqFilePath, logger);
+                    if (!eqS3dArchive.Initialize())
+                    {
+                        logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + eqFilePath);
+                        return;
+                    }
+                    var eqWldFileName = eqFile + LanternStrings.WldFormatExtension;
+                    var eqWldFileInArchive = eqS3dArchive.GetFile(eqWldFileName);
+                    var wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings);
+                    wldEqFile.Initialize(rootFolder, false);
+                    eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
+                    includeList.Clear();
+                    if (pcEquipment.Primary != null)
+                    {
+                        includeList.AddRange(wldEqFile.GetActorImageNames(pcEquipment.Primary));
+                    }
+                    if (pcEquipment.Secondary != null)
+                    {
+                        includeList.AddRange(wldEqFile.GetActorImageNames(pcEquipment.Secondary));
+                    }
+                    WriteWldTextures(eqS3dArchive, wldEqFile, exportFolder, logger, includeList);
+                    if (i == 0)
+                    {
+                        wldEqFiles.Item1 = wldEqFile;
+                    }
+                    else
+                    {
+                        wldEqFiles.Item2 = wldEqFile;
+                    }
+                }
+            }
+
+            ActorGltfExporter.ExportPlayerCharacter(wldChrFile, wldEqFiles, settings, logger, pcEquipment);
         }
 
         private static void ExtractArchiveZone(string path, string rootFolder, ILogger logger, Settings settings,
@@ -171,7 +282,7 @@ namespace LanternExtractor.EQ
             }
 
             var wldFile = new WldFileCharacters(wldFileInArchive, shortName, WldType.Characters,
-                logger, settings, wldFileToInject);
+                logger, settings, new List<WldFile>() { wldFileToInject });
 
             string exportPath = rootFolder + (settings.ExportCharactersToSingleFolder &&
                                               settings.ModelExportFormat == ModelExportFormat.Intermediate
@@ -244,10 +355,11 @@ namespace LanternExtractor.EQ
         /// <param name="s3dArchive"></param>
         /// <param name="wldFile"></param>
         /// <param name="zoneName"></param>
-        public static void WriteWldTextures(PfsArchive s3dArchive, WldFile wldFile, string zoneName, ILogger logger)
+        public static void WriteWldTextures(PfsArchive s3dArchive, WldFile wldFile, string zoneName, 
+            ILogger logger, ICollection<string> includeList = null)
         {
-            var allBitmaps = wldFile.GetAllBitmapNames();
-            var maskedBitmaps = wldFile.GetMaskedBitmaps();
+            var allBitmaps = wldFile.GetAllBitmapNames(includeList);
+            var maskedBitmaps = wldFile.GetMaskedBitmaps(includeList);
 
             foreach (var bitmap in allBitmaps)
             {

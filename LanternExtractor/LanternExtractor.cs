@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -44,17 +45,35 @@ namespace LanternExtractor
             _settings.Initialize();
             _logger.SetVerbosity((LogVerbosity)_settings.LoggerVerbosity);
 
-            string archiveName;
-
             DateTime start = DateTime.Now;
 
-            if (args.Length != 1)
+            if (false /*DEBUG*/ && args.Length != 1)
             {
-                Console.WriteLine("Usage: lantern.exe <filename/shortname/all>");
+                Console.WriteLine("Usage: lantern.exe <filename/shortname/pc/all>");
                 return;
             }
 
-            archiveName = args[0];
+            string archiveName = "pc"; // args[0]; // DEBUG
+
+            if (archiveName.Equals("pc", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!File.Exists(Path.Combine(_settings.EverQuestDirectory, "global_chr.s3d")))
+                {
+                    Console.WriteLine("No valid EQ files found at path: " + _settings.EverQuestDirectory);
+                    return;
+                }
+                var pcEquipJsonFilePath = "PcEquip.json";
+                if (!File.Exists(pcEquipJsonFilePath))
+                {
+                    Console.WriteLine("PcEquip.json file not found!");
+                    return;
+                }
+
+                ArchiveExtractor.ExportSinglePlayerCharacterGltf(pcEquipJsonFilePath, "Exports/", _logger, _settings);
+                Console.WriteLine($"Single player character export complete ({(DateTime.Now - start).TotalSeconds})s");
+
+                return;
+            }
 
             List<string> eqFiles = EqFileHelper.GetValidEqFilePaths(_settings.EverQuestDirectory, archiveName);
 

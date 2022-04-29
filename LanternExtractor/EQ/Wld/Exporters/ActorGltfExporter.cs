@@ -38,6 +38,167 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
 
+        public static void ExportPlayerCharacter(WldFileCharacters wldChrFile, (WldFileEquipment, WldFileEquipment) wldEqFiles,
+            Settings settings, ILogger logger, PlayerCharacterModel playerCharacterModel)
+        {
+            var actorName = playerCharacterModel.RaceGender;
+            var lookupName = $"{actorName}_ACTORDEF";
+
+            var actor = wldChrFile.GetFragmentByName<Actor>(lookupName);
+
+            var skeleton = actor?.SkeletonReference?.SkeletonHierarchy;
+
+            if (skeleton == null) return;
+
+            var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
+
+            var allMeshes = skeleton.Meshes.Union(skeleton.SecondaryMeshes);
+            var bodyMeshName = playerCharacterModel.Robe ? $"{actorName}01" : actorName;
+            bodyMeshName = $"{bodyMeshName}_DMSPRITEDEF";
+            var headMeshName = $"{actorName}HE{playerCharacterModel.Head.Material:00}";
+            headMeshName = $"{headMeshName}_DMSPRITEDEF";
+            var bodyMesh = allMeshes.Where(m => m.Name.Equals(bodyMeshName, StringComparison.InvariantCultureIgnoreCase)).Single();
+            var headMesh = allMeshes.Where(m => m.Name.Equals(headMeshName, StringComparison.InvariantCultureIgnoreCase)).Single();
+            WldFragment primaryMeshOrSkeleton = null;
+            WldFragment secondaryMeshOrSkeleton = null;
+
+            var materialLists = new HashSet<MaterialList>();
+            materialLists.Add(bodyMesh.MaterialList);
+            materialLists.Add(headMesh.MaterialList);
+            if (wldEqFiles.Item1 != null)
+            {
+                if (!string.IsNullOrEmpty(playerCharacterModel.Primary))
+                {
+                    var primaryActorLookupName = $"{playerCharacterModel.Primary}_ACTORDEF";
+                    var primaryActor = wldEqFiles.Item1.GetFragmentByName<Actor>(primaryActorLookupName);
+                    if (primaryActor == null)
+                    {
+                        primaryActor = wldEqFiles.Item2.GetFragmentByName<Actor>(primaryActorLookupName);
+                        if (primaryActor == null)
+                        {
+                            logger.LogError($"Player character model primary '{primaryActorLookupName}' not found!");
+                            return;
+                        }
+                    }
+                    if (primaryActor.ActorType == ActorType.Static)
+                    {
+                        primaryMeshOrSkeleton = primaryActor.MeshReference?.Mesh;
+                        if (primaryMeshOrSkeleton != null)
+                        {
+                            materialLists.Add(((Mesh)primaryMeshOrSkeleton).MaterialList);
+                        }
+                    }
+                    else if (primaryActor.ActorType == ActorType.Skeletal)
+                    {
+                        primaryMeshOrSkeleton = primaryActor.SkeletonReference?.SkeletonHierarchy;
+                        if (primaryMeshOrSkeleton != null)
+                        {
+                            foreach (var bone in ((SkeletonHierarchy)primaryMeshOrSkeleton).Skeleton.Where(b => b.MeshReference?.Mesh != null))
+                            {
+                                materialLists.Add(bone.MeshReference.Mesh.MaterialList);
+                            }
+                        }
+                    }
+                }
+                if (!string.IsNullOrEmpty(playerCharacterModel.Secondary))
+                {
+                    var secondaryActorLookupName = $"{playerCharacterModel.Secondary}_ACTORDEF";
+                    var secondaryActor = wldEqFiles.Item1.GetFragmentByName<Actor>(secondaryActorLookupName);
+                    if (secondaryActor == null)
+                    {
+                        secondaryActor = wldEqFiles.Item2.GetFragmentByName<Actor>(secondaryActorLookupName);
+                        if (secondaryActor == null)
+                        {
+                            logger.LogError($"Player character model secondary '{secondaryActorLookupName}' not found!");
+                            return;
+                        }
+                    }
+                    secondaryMeshOrSkeleton = secondaryActor.MeshReference?.Mesh;
+                    if (secondaryMeshOrSkeleton != null)
+                    {
+                        materialLists.Add(((Mesh)secondaryMeshOrSkeleton).MaterialList);
+                    }
+                }
+            }
+
+            var exportFolder = wldChrFile.GetExportFolderForWldType();
+            if (exportFolder.EndsWith("Characters/"))
+            {
+                exportFolder = exportFolder.Replace("Characters/", "");
+            }
+            gltfWriter.GenerateGltfMaterials(materialLists, Path.Combine(exportFolder, "Textures"), true);
+
+            MeshExportHelper.ShiftMeshVertices(bodyMesh, skeleton, true, "pos", 0);
+            gltfWriter.AddFragmentData(bodyMesh, skeleton, playerCharacterModel);
+            MeshExportHelper.ShiftMeshVertices(headMesh, skeleton, true, "pos", 0);
+            gltfWriter.AddFragmentData(headMesh, skeleton, playerCharacterModel);
+
+            var boneIndexOffset = skeleton.Skeleton.Count;
+
+            if (primaryMeshOrSkeleton != null)
+            {
+                var primaryBoneIndex = skeleton.BoneMappingClean.Where(kv => kv.Value == "r_point").Single().Key;
+                if (primaryMeshOrSkeleton is Mesh)
+                {
+                    MeshExportHelper.ShiftMeshVertices((Mesh)primaryMeshOrSkeleton, skeleton, true, "pos", 0, primaryBoneIndex, true);
+                    gltfWriter.AddFragmentData(
+                        mesh: (Mesh)primaryMeshOrSkeleton,
+                        generationMode: ModelGenerationMode.Combine,
+                        isSkinned: true,
+                        singularBoneIndex: primaryBoneIndex);
+                }
+                else
+                {
+                    var primarySkeleton = (SkeletonHierarchy)primaryMeshOrSkeleton;
+                    for (int i = 0; i < primarySkeleton.Skeleton.Count; i++)
+                    {
+                        var bone = primarySkeleton.Skeleton[i];
+                        var mesh = bone?.MeshReference?.Mesh;
+                        if (mesh != null)
+                        {
+                            MeshExportHelper.ShiftMeshVerticesMultipleSkeletons(
+                                mesh,
+                                new List<SkeletonHierarchy>() { primarySkeleton, skeleton },
+                                new List<bool>() { false, true },
+                                "pos",
+                                0,
+                                new List<int>() { i, primaryBoneIndex },
+                                true);
+
+                            gltfWriter.AddFragmentData(mesh, primarySkeleton, null, i + boneIndexOffset, skeleton.ModelBase, "r_point");
+                            gltfWriter.ApplyAnimationToSkeleton(primarySkeleton, "pos", false, true);
+                        }
+                    }
+                    boneIndexOffset += primarySkeleton.Skeleton.Count;
+                }
+            }
+            if (secondaryMeshOrSkeleton != null)
+            {
+                var attachBone = IsShield(playerCharacterModel.Secondary) ? "shield_point" : "l_point";
+                var secondaryBoneIndex = skeleton.BoneMappingClean.Where(kv => kv.Value == attachBone).Single().Key;
+                MeshExportHelper.ShiftMeshVertices((Mesh)secondaryMeshOrSkeleton, skeleton, true, "pos", 0, secondaryBoneIndex);
+                gltfWriter.AddFragmentData(
+                    mesh: (Mesh)secondaryMeshOrSkeleton,
+                    generationMode: ModelGenerationMode.Combine,
+                    isSkinned: true,
+                    singularBoneIndex: secondaryBoneIndex);
+            }
+
+            gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", true, true);
+
+            if (settings.ExportAllAnimationFrames)
+            {
+                foreach (var animationKey in skeleton.Animations.Keys)
+                {
+                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, true, false);
+                }
+            }
+
+            var exportFilePath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}.gltf";
+            gltfWriter.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
+        }
+
         private static void ExportZone(WldFileZone wldFileZone, Settings settings, ILogger logger )
         {
             var zoneMeshes = wldFileZone.GetFragmentsOfType<Mesh>();
@@ -293,5 +454,104 @@ namespace LanternExtractor.EQ.Wld.Exporters
             // corresponding image URIs. If GLB then would have to repackage every variant.
             // KHR_materials_variants extension is made for this, but no support for it in SharpGLTF
         }
+
+        private static bool IsShield(string itemId)
+        {
+            var numericItem = int.Parse(itemId.Substring(2));
+            return numericItem >= 200 && numericItem < 300;
+        }
+    }
+
+    public class PlayerCharacterModel
+    {
+        public int Face { get; set; }
+        public string RaceGender { get; set; }
+        public bool Robe { get; set; }
+        public string Primary { get; set; }
+        public string Secondary { get; set; }
+        public Equipment Head { get; set; }
+        public Equipment Wrist { get; set; }
+        public Equipment Arms { get; set; }
+        public Equipment Hands { get; set; }
+        public Equipment Chest { get; set; }
+        public Equipment Legs { get; set; }
+        public Equipment Feet { get; set; }
+
+        public class Equipment
+        {
+            public int Material { get; set; }
+            public Color Color { get; set; }
+        }
+
+        public Equipment GetEquipmentForImageName(string imageName)
+        {
+            imageName = imageName.ToLower();
+            if (imageName.StartsWith("clk")) return Chest;
+            if (imageName.Contains("he00") && (imageName.EndsWith("1") || imageName.EndsWith("2")))
+            {
+                return new Equipment() { Material = Face };
+            }
+            foreach (var headImage in HeadImagesWithNoVariant)
+            {
+                if (imageName.StartsWith(headImage)) return new Equipment() { Material = 0, Color = Head?.Color };
+            }
+            
+            var part = imageName.Substring(3, 2);
+            switch (part)
+            {
+                case "he": return Head;
+                case "fa": return Wrist;
+                case "ua": return Arms;
+                case "hn": return Hands;
+                case "ch": return Chest;
+                case "lg": return Legs;
+                case "ft": return Feet;
+                default: return new Equipment() { Material = 0 };
+            }
+        }
+
+        public bool Validate(out string errorMessage)
+        {
+            if (string.IsNullOrEmpty(RaceGender))
+            {
+                errorMessage = "RaceGender is missing or empty!";
+                return false;
+            }
+            RaceGender = RaceGender.ToUpper();
+            if (!ValidRaceGenders.Contains(RaceGender))
+            {
+                errorMessage = $"RaceGender '{RaceGender}' is not a valid value!";
+                return false;
+            }
+            if (Robe && !RaceGendersThatCanWearRobe.Contains(RaceGender))
+            {
+                errorMessage = $"RaceGender '{RaceGender}' cannot wear a robe!";
+                return false;
+            }
+            Primary = Primary?.ToUpper();
+            Secondary = Secondary?.ToUpper();
+            errorMessage = "";
+            return true;
+        }
+
+        public static readonly HashSet<string> ValidRaceGenders = new HashSet<string>()
+        {
+            "BAF", "BAM", "DAF", "DAM", "DWF", "DWM", "ELF", "ELM", "ERF", "ERM",
+            "GNF", "GNM", "HAF", "HAM", "HIF", "HIM", "HOF", "HOM", "HUF", "HUM",
+            "IKF", "IKM", "OGF", "OGM", "TRF", "TRM"
+        };
+
+        public static readonly HashSet<string> RaceGendersThatCanWearRobe = new HashSet<string>()
+        {
+            "DAF", "DAM", "ERF", "ERM", "GNF", "GNM", 
+            "HIF", "HIM", "HUF", "HUM", "IKF", "IKM"
+        };
+
+        private static readonly List<string> HeadImagesWithNoVariant = new List<string>()
+        {
+            "helm",
+            "chain",
+            "magecap"
+        };
     }
 }

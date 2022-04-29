@@ -462,8 +462,11 @@ namespace LanternExtractor.EQ.Wld.Fragments
             boneName = string.Empty;
             return false;
         }
-
         public mat4 GetBoneMatrix(int boneIndex, Dictionary<string, TrackFragment> animationTracks, int frame)
+        {
+            return GetBoneMatrix(boneIndex, animationTracks, frame, vec3.Zero);
+        }
+        public mat4 GetBoneMatrix(int boneIndex, Dictionary<string, TrackFragment> animationTracks, int frame, vec3 centerCorrectionVector)
         {
             if (frame < 0)
             {
@@ -471,8 +474,8 @@ namespace LanternExtractor.EQ.Wld.Fragments
             }
 
             var currentBone = Skeleton[boneIndex];
-            
-            mat4 boneMatrix = mat4.Identity;
+
+            mat4 boneMatrix = mat4.Translate(centerCorrectionVector).Inverse * mat4.Identity;
 
             while (currentBone != null)
             {
@@ -480,21 +483,21 @@ namespace LanternExtractor.EQ.Wld.Fragments
                 {
                     break;
                 }
-                
+
                 var track = animationTracks[currentBone.CleanedName].TrackDefFragment;
                 int realFrame = frame >= track.Frames.Count ? 0 : frame;
                 currentBone = Skeleton[boneIndex].Parent;
-                
+
                 float scaleValue = track.Frames[realFrame].Scale;
                 var scaleMat = mat4.Scale(scaleValue, scaleValue, scaleValue);
-        
-                var rotationMatrix = new mat4(track.Frames[realFrame].Rotation);
-        
+
+                var rotationMatrix = new mat4(track.Frames[realFrame].Rotation.Normalized);
+
                 var translation = track.Frames[realFrame].Translation;
                 var translateMat = mat4.Translate(translation);
 
                 var modelMatrix = translateMat * rotationMatrix * scaleMat;
-
+             
                 boneMatrix = modelMatrix * boneMatrix;
 
                 if (currentBone != null)
@@ -502,8 +505,8 @@ namespace LanternExtractor.EQ.Wld.Fragments
                     boneIndex = currentBone.Index;
                 }
             }
-
-            return boneMatrix;
+            
+            return mat4.Translate(centerCorrectionVector) * boneMatrix;
         }
 
         public void RenameNodeBase(string newBase)

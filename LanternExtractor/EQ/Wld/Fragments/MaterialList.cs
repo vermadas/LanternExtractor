@@ -83,8 +83,8 @@ namespace LanternExtractor.EQ.Wld.Fragments
 
                 ParseCharacterSkin(FragmentNameCleaner.CleanName(material), out character, out skinId, out partName,
                     logger);
-
                 string key = character + "_" + partName;
+                
                 Slots[key] = new Dictionary<int, Material>();
             }
 
@@ -122,17 +122,49 @@ namespace LanternExtractor.EQ.Wld.Fragments
         private static void ParseCharacterSkin(string materialName, out string character, out string skinId,
             out string partName, ILogger logger)
         {
-            if (materialName.Length != 9)
+            if (materialName.StartsWith("clk", StringComparison.InvariantCultureIgnoreCase))
+            {
+                character = materialName.Substring(0, 3);
+                if (materialName.Length == 7)
+                {
+                    skinId = materialName.Substring(3, 2);
+                    partName = character + materialName.Substring(5, 2);
+                }
+                else // (materialName.Length == 8) // Erudite hoods clkerf06, clkerm06
+                {                   
+                    skinId = "00";
+                    partName = character + materialName.Substring(6, 2);
+                }
+            }
+            else if (materialName.Length == 9)
+            {
+                character = materialName.Substring(0, 3);
+                if (materialName.Substring(3,4).Equals("he00", StringComparison.InvariantCultureIgnoreCase))
+                { // Pattern is different for head/face
+                    if (character.Substring(2).Equals("ik", StringComparison.InvariantCultureIgnoreCase) &&
+                        new List<string>() { "10", "13", "14", "15", "16"}.Contains(materialName.Substring(7, 2)))
+                    { // Iksar have part numbers that roll past 10, but 11, 12 still follow the other pattern
+                        skinId = materialName.Substring(5, 2);
+                        partName = materialName.Substring(3, 2) + materialName.Substring(7, 2);
+                    }
+                    else
+                    {
+                        skinId = materialName.Substring(6, 2);
+                        partName = materialName.Substring(3, 2) + "0" + materialName.Substring(8, 1);
+                    }
+                }
+                else
+                {
+                    skinId = materialName.Substring(5, 2);
+                    partName = materialName.Substring(3, 2) + materialName.Substring(7, 2);
+                }
+            }
+            else
             {
                 character = string.Empty;
                 skinId = string.Empty;
                 partName = string.Empty;
-                return;
             }
-
-            character = materialName.Substring(0, 3);
-            skinId = materialName.Substring(5, 2);
-            partName = materialName.Substring(3, 2) + materialName.Substring(7, 2);
         }
 
         public static string GetMaterialPrefix(ShaderType shaderType)

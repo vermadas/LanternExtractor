@@ -3,7 +3,7 @@
 # EverQuest Installation Path
 # Window example: C:/EverQuest
 # MacOS example: /Users/your.name/EQ/
-EverQuestDirectory = C:/EverQuest
+EverQuestDirectory = C:/Program Files (x86)/EverQuest/
 
 # Extract the contents of the S3D archive as is?
 # If true, this will export all contents as they exist in the archives to their original formats.
@@ -12,7 +12,7 @@ RawS3DExtract = false
 
 # Sets the desired export format for models
 # 0 = Intermediate (Unity importer), 1 = OBJ, 2 = glTF
-ModelExportFormat = 0
+ModelExportFormat = 2
 
 # Extract the zone mesh with groups?
 # The zone model is made up of smaller BSP region meshes.
@@ -29,7 +29,7 @@ ExportHiddenGeometry = false
 # If true, will export all characters to the 'characters' folder
 # This is useful when batch importing into Unity
 # (Intermediate)
-ExportCharacterToSingleFolder = true
+ExportCharacterToSingleFolder = false
 
 # If true, will export all equipment to the 'equipment' folder
 # This is useful when batch importing into Unity

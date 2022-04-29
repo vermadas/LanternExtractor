@@ -2,6 +2,7 @@
 using LanternExtractor.EQ.Wld.Exporters;
 using LanternExtractor.EQ.Wld.Fragments;
 using LanternExtractor.Infrastructure.Logger;
+using System.Linq;
 
 namespace LanternExtractor.EQ.Wld
 {
@@ -49,9 +50,9 @@ namespace LanternExtractor.EQ.Wld
                 colorWriter.ClearExportData();
             }
             
-            if (_wldToInject != null)
+            foreach (var wldToInject in _wldsToInject ?? Enumerable.Empty<WldFile>())
             {
-                instanceList = _wldToInject.GetFragmentsOfType<ObjectInstance>();
+                instanceList = wldToInject.GetFragmentsOfType<ObjectInstance>();
 
                 foreach (var instance in instanceList)
                 {

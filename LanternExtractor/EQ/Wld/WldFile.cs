@@ -81,10 +81,14 @@ namespace LanternExtractor.EQ.Wld
         /// </summary>
         private bool _isNewWldFormat;
 
-        protected readonly WldFile _wldToInject;
+        protected readonly ICollection<WldFile> _wldsToInject;
 
 
         public Dictionary<string, string> FilenameChanges = new Dictionary<string, string>();
+
+        protected WldFile(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
+            WldFile fileToInject) :
+            this(wldFile, zoneName, type, logger, settings, new List<WldFile>() { fileToInject }) { }
 
         /// <summary>
         /// Constructor setting data references used during the initialization process
@@ -94,14 +98,14 @@ namespace LanternExtractor.EQ.Wld
         /// <param name="type">The type of WLD - used to determine what to extract</param>
         /// <param name="logger">The logger used for debug output</param>
         protected WldFile(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
-            WldFile fileToInject)
+            ICollection<WldFile> filesToInject)
         {
             _wldFile = wldFile;
             _zoneName = zoneName.ToLower();
             _wldType = type;
             _logger = logger;
             _settings = settings;
-            _wldToInject = fileToInject;
+            _wldsToInject = filesToInject;
         }
 
         /// <summary>
@@ -268,7 +272,7 @@ namespace LanternExtractor.EQ.Wld
         /// Used in exporting the bitmaps from the PFS archive
         /// </summary>
         /// <returns>Dictionary with material to shader mapping</returns>
-        public List<string> GetMaskedBitmaps()
+        public List<string> GetMaskedBitmaps(ICollection<string> includeList = null)
         {
             var materialLists = GetFragmentsOfType<MaterialList>();
 
@@ -279,6 +283,7 @@ namespace LanternExtractor.EQ.Wld
             }
 
             List<string> maskedTextures = new List<string>();
+            if (includeList != null && !includeList.Any()) return maskedTextures;
 
             foreach (var list in materialLists)
             {
@@ -305,7 +310,10 @@ namespace LanternExtractor.EQ.Wld
                     }
                 }
             }
-
+            if (includeList != null)
+            {
+                return maskedTextures.Where(t => includeList.Contains(t)).ToList();
+            }
             return maskedTextures;
         }
 
@@ -353,6 +361,60 @@ namespace LanternExtractor.EQ.Wld
             }
         }
 
+        public ICollection<string> GetActorImageNames(string actorName)
+        {
+            var imageNames = new HashSet<string>();
+            if (!actorName.EndsWith("_ACTORDEF"))
+            {
+                actorName += "_ACTORDEF";
+            }
+            var actor = GetFragmentByName<Actor>(actorName);
+            if (actor == null)
+            {
+                return imageNames;
+            }
+            var materialLists = new List<MaterialList>();
+            if (actor.MeshReference?.Mesh != null)
+            {
+                materialLists.Add(actor.MeshReference.Mesh.MaterialList);
+            }
+            var skeleton = actor.SkeletonReference?.SkeletonHierarchy;
+            if (skeleton != null)
+            {
+                foreach (var mesh in skeleton.Meshes ?? Enumerable.Empty<Mesh>())
+                {
+                    materialLists.Add(mesh.MaterialList);
+                }
+
+                foreach (var mesh in skeleton.SecondaryMeshes ?? Enumerable.Empty<Mesh>())
+                {
+                    materialLists.Add(mesh.MaterialList);
+                }
+
+                foreach (var bone in skeleton.Skeleton)
+                {
+                    var boneMaterialList = bone.MeshReference?.Mesh?.MaterialList;
+                    if (boneMaterialList != null)
+                    {
+                        materialLists.Add(boneMaterialList);
+                    }
+                }
+            }
+            
+            foreach (var materialList in materialLists)
+            {
+                materialList.Materials.ForEach(
+                    m => m.GetAllBitmapNames(true).ForEach(
+                        b => imageNames.Add(b)));
+                
+                var additionalMaterials = materialList?.AdditionalMaterials ?? Enumerable.Empty<Material>();
+                additionalMaterials.ToList().ForEach(
+                    m => m.GetAllBitmapNames(true).ForEach(
+                        b => imageNames.Add(b)));
+            }
+
+            return imageNames;
+        }
         protected string GetRootExportFolder()
         {
             switch (_wldType)
@@ -363,6 +425,9 @@ namespace LanternExtractor.EQ.Wld
                 case WldType.Characters when (_settings.ExportCharactersToSingleFolder &&
                         _settings.ModelExportFormat == ModelExportFormat.Intermediate):
                     return RootExportFolder + "characters/";
+                case WldType.Equipment when _settings.ModelExportFormat == ModelExportFormat.GlTF &&
+                        _zoneName == "gequip2":
+                    return RootExportFolder + "gequip2" + "/";
                 default:
                     return RootExportFolder + ShortnameHelper.GetCorrectZoneShortname(_zoneName) + "/";
             }
@@ -417,13 +482,16 @@ namespace LanternExtractor.EQ.Wld
 
             if (skeletons.Count == 0)
             {
-                if (_wldToInject == null)
+                if (_wldsToInject == null || !_wldsToInject.Any())
                 {
                     _logger.LogWarning("Cannot export animations. No model references.");
                     return;
                 }
 
-                skeletons = _wldToInject.GetFragmentsOfType<SkeletonHierarchy>();
+                foreach (var wldToInject in _wldsToInject)
+                {
+                    skeletons.AddRange(wldToInject.GetFragmentsOfType<SkeletonHierarchy>());
+                }
 
                 if (skeletons == null)
                 {
@@ -484,15 +552,21 @@ namespace LanternExtractor.EQ.Wld
             }
         }
 
-        public List<string> GetAllBitmapNames()
+        public List<string> GetAllBitmapNames(ICollection<string> includeList = null)
         {
             List<string> bitmaps = new List<string>();
+            if (includeList != null && !includeList.Any()) return bitmaps;
+
             var bitmapFragments = GetFragmentsOfType<BitmapName>();
             foreach (var fragment in bitmapFragments)
             {
                 bitmaps.Add(fragment.Filename);
             }
 
+            if (includeList != null)
+            {
+                return bitmaps.Where(b => includeList.Contains(b)).ToList();
+            }
             return bitmaps;
         }
 
@@ -505,7 +579,10 @@ namespace LanternExtractor.EQ.Wld
                 skeleton.BuildSkeletonData(_wldType == WldType.Characters);
             }
 
-            (_wldToInject as WldFileCharacters)?.BuildSkeletonData();
+            if (_wldsToInject != null && _wldsToInject.Any())
+            {
+                _wldsToInject.ToList().ForEach(w => (w as WldFileCharacters)?.BuildSkeletonData());
+            }
         }
     }
 }

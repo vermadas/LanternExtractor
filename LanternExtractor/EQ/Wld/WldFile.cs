@@ -399,10 +399,7 @@ namespace LanternExtractor.EQ.Wld
         {
             var actors = GetFragmentsOfType<Actor>();
 
-            if (_wldToInject != null)
-            {
-                actors.AddRange(_wldToInject.GetFragmentsOfType<Actor>());
-            }
+            _wldFilesToInject?.ForEach(w => actors.AddRange(w.GetFragmentsOfType<Actor>()));
 
             if (actors.Count == 0)
             {

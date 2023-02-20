@@ -186,13 +186,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             var exportFolder = wldFile.GetExportFolderForWldType();
 
-            // HACK - the helper method GetExportFolderForWldType() is looking at
-            // this setting and returns the base zone folder if true
-            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters)
-            {
-                exportFolder = $"{exportFolder}Characters/";
-            }
-
             var textureImageFolder = $"{exportFolder}Textures/";
             gltfWriter.GenerateGltfMaterials(new List<MaterialList>() { mesh.MaterialList }, textureImageFolder);
             gltfWriter.AddFragmentData(mesh);
@@ -232,12 +225,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var exportFolder = wldFile.GetExportFolderForWldType();
-            // HACK - the helper method GetExportFolderForWldType() is looking at
-            // this setting and returns the base zone folder if true
-            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters)
-            {
-                exportFolder = $"{exportFolder}Characters/";
-            }
 
             var textureImageFolder = $"{exportFolder}Textures/";
             gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);

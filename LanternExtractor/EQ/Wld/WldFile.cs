@@ -366,7 +366,8 @@ namespace LanternExtractor.EQ.Wld
                 case WldType.Sky:
                     return GetRootExportFolder();
                 case WldType.Characters:
-                    if (_settings.ExportCharactersToSingleFolder)
+                    if (_settings.ExportCharactersToSingleFolder && 
+                        _settings.ModelExportFormat == ModelExportFormat.Intermediate)
                     {
                         return GetRootExportFolder();
                     }
@@ -396,7 +397,14 @@ namespace LanternExtractor.EQ.Wld
 
         private void ExportActors()
         {
-            if (GetFragmentsOfType<Actor>().Count == 0)
+            var actors = GetFragmentsOfType<Actor>();
+
+            if (_wldToInject != null)
+            {
+                actors.AddRange(_wldToInject.GetFragmentsOfType<Actor>());
+            }
+
+            if (actors.Count == 0)
             {
                 return;
             }
@@ -419,7 +427,7 @@ namespace LanternExtractor.EQ.Wld
                 actorWriterSprite2d = new ActorWriter(ActorType.Sprite);
             }
 
-            foreach (var actorFragment in GetFragmentsOfType<Actor>())
+            foreach (var actorFragment in actors)
             {
                 actorWriterStatic.AddFragmentData(actorFragment);
                 actorWriterSkeletal.AddFragmentData(actorFragment);
@@ -534,7 +542,7 @@ namespace LanternExtractor.EQ.Wld
 
             foreach (var skeleton in skeletons)
             {
-                skeleton.BuildSkeletonData(_wldType == WldType.Characters);
+                skeleton.BuildSkeletonData(_wldType == WldType.Characters || _settings.ModelExportFormat == ModelExportFormat.Intermediate);
             }
 
             _wldFilesToInject?.ForEach(w => (w as WldFileCharacters)?.BuildSkeletonData());

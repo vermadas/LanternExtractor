@@ -188,7 +188,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             // HACK - the helper method GetExportFolderForWldType() is looking at
             // this setting and returns the base zone folder if true
-            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters)
+            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters
+                                                        && settings.ModelExportFormat == ModelExportFormat.Intermediate)
             {
                 exportFolder = $"{exportFolder}Characters/";
             }
@@ -234,7 +235,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var exportFolder = wldFile.GetExportFolderForWldType();
             // HACK - the helper method GetExportFolderForWldType() is looking at
             // this setting and returns the base zone folder if true
-            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters)
+            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters
+                                                        && settings.ModelExportFormat == ModelExportFormat.Intermediate)
             {
                 exportFolder = $"{exportFolder}Characters/";
             }
@@ -281,11 +283,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     if (settings.ExportAllAnimationFrames)
                     {
                         secondaryGltfWriter.AddFragmentData(secondaryMesh, skeleton);
-                        foreach (var animationKey in skeleton.Animations.Keys
-							.OrderBy(k => k, new AnimationKeyComparer()))
+                        foreach (var animationKey in skeleton.Animations.Keys.OrderBy(k => k, new AnimationKeyComparer()))
                         {
-                            secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, 
-								wldFile.WldType == WldType.Characters, false);
+                            secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
+                                wldFile.WldType == WldType.Characters, false);
                         }
                     }
 
@@ -298,11 +299,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             if (settings.ExportAllAnimationFrames)
             {
-                foreach (var animationKey in skeleton.Animations.Keys
-					.OrderBy(k => k, new AnimationKeyComparer()))
+                foreach (var animationKey in skeleton.Animations.Keys.OrderBy(k => k, new AnimationKeyComparer()))
                 {
-                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, 
-						wldFile.WldType == WldType.Characters, false);
+                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, wldFile.WldType == WldType.Characters,
+                        false);
                 }
             }
 
@@ -314,6 +314,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             // KHR_materials_variants extension is made for this, but no support for it in SharpGLTF
         }
     }
+<<<<<<< HEAD
 
     public class AnimationKeyComparer : Comparer<string>
     {
@@ -346,3 +347,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private const string AnimationSort = "polcdts";
     }
 }
+=======
+}
+>>>>>>> master

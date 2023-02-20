@@ -59,6 +59,13 @@ namespace LanternExtractor.EQ
             if (!s3dArchive.IsWldArchive)
             {
                 WriteS3dTextures(s3dArchive, rootFolder + shortName, logger);
+
+                if (EqFileHelper.IsSoundArchive(archiveName))
+                {
+                    var soundFolder = settings.ExportSoundsToSingleFolder ? "sounds" : shortName;
+                    WriteS3dSounds(s3dArchive, rootFolder + soundFolder, logger);
+                }
+
                 return;
             }
 
@@ -86,7 +93,7 @@ namespace LanternExtractor.EQ
             }
             else if (EqFileHelper.IsObjectsArchive(archiveName))
             {
-                ExtractArchiveObjects(rootFolder, logger, settings, wldFileInArchive, shortName, s3dArchive);
+                ExtractArchiveObjects(path, rootFolder, logger, settings, wldFileInArchive, shortName, s3dArchive);
             }
             else
             {
@@ -195,11 +202,23 @@ namespace LanternExtractor.EQ
             ExtractSoundData(shortName, rootFolder, settings);
         }
 
-        private static void ExtractArchiveObjects(string rootFolder, ILogger logger, Settings settings,
+        private static void ExtractArchiveObjects(string path, string rootFolder, ILogger logger, Settings settings,
             PfsFile wldFileInArchive, string shortName, PfsArchive s3dArchive)
         {
-            var wldFile = new WldFileZone(wldFileInArchive, shortName, WldType.Objects, logger, settings);
-            InitializeWldAndWriteTextures(wldFile, rootFolder, 
+            // Some zones have a "_2_obj" which needs to be injected into the main zone file
+            var s3dArchiveObj2 = new PfsArchive(path.Replace(shortName + "_obj", shortName + "_2_obj"), logger);
+            WldFileZone wldFileObj2 = null;
+
+            if (s3dArchiveObj2.Initialize())
+            {
+                var obj2WldFileInArchive = s3dArchiveObj2.GetFile(shortName + "_2_obj.wld");
+                wldFileObj2 = new WldFileZone(obj2WldFileInArchive, shortName, WldType.Zone,
+                    logger, settings);
+                wldFileObj2.Initialize(rootFolder, false);
+            }
+
+            var wldFile = new WldFileZone(wldFileInArchive, shortName, WldType.Objects, logger, settings, wldFileObj2);
+            InitializeWldAndWriteTextures(wldFile, rootFolder,
                 rootFolder + ShortnameHelper.GetCorrectZoneShortname(shortName) + "/Objects/Textures/",
                 s3dArchive, settings, logger);
         }
@@ -269,7 +288,7 @@ namespace LanternExtractor.EQ
                 s3dArchive.FilenameChanges = wldFile.FilenameChanges;
                 WriteWldTextures(s3dArchive, wldFile, texturePath, logger);
             }
-            else // Exporting to GlTF requires that the texture images already be present 
+            else // Exporting to GlTF requires that the texture images already be present
             {
                 wldFile.Initialize(rootFolder, false);
                 s3dArchive.FilenameChanges = wldFile.FilenameChanges;
@@ -277,6 +296,25 @@ namespace LanternExtractor.EQ
                 wldFile.ExportData();
             }
         }
+
+        /// <summary>
+        /// Writes sounds from the PFS archive to disk
+        /// </summary>
+        /// <param name="s3dArchive"></param>
+        /// <param name="filePath"></param>
+        private static void WriteS3dSounds(PfsArchive s3dArchive, string filePath, ILogger logger)
+        {
+            var allFiles = s3dArchive.GetAllFiles();
+
+            foreach (var file in allFiles)
+            {
+                if (file.Name.EndsWith(".wav"))
+                {
+                    SoundWriter.WriteSoundAsWav(file.Bytes, filePath, file.Name, logger);
+                }
+            }
+        }
+
         /// <summary>
         /// Writes textures from the PFS archive to disk, converting them to PNG
         /// </summary>

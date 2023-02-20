@@ -31,7 +31,7 @@ namespace LanternExtractor
 
                 foreach (var fileName in zoneFiles)
                 {
-                    Console.WriteLine($"Startined to extract {fileName}");
+                    Console.WriteLine($"Started extracting {fileName}");
                     ArchiveExtractor.Extract(fileName, "Exports/", _logger, _settings);
                     Console.WriteLine($"Finished extracting {fileName}");
                 }
@@ -44,8 +44,6 @@ namespace LanternExtractor
             _settings.Initialize();
             _logger.SetVerbosity((LogVerbosity)_settings.LoggerVerbosity);
 
-            string archiveName;
-
             DateTime start = DateTime.Now;
 
             if (args.Length != 1)
@@ -54,11 +52,12 @@ namespace LanternExtractor
                 return;
             }
 
-            archiveName = args[0];
+            var archiveName = args[0];
 
             List<string> eqFiles = EqFileHelper.GetValidEqFilePaths(_settings.EverQuestDirectory, archiveName);
+            eqFiles.Sort();
 
-            if (eqFiles.Count == 0)
+            if (eqFiles.Count == 0 && !EqFileHelper.IsClientDataFile(archiveName))
             {
                 Console.WriteLine("No valid EQ files found for: '" + archiveName + "' at path: " +
                                   _settings.EverQuestDirectory);
@@ -74,7 +73,7 @@ namespace LanternExtractor
                 List<Task> tasks = new List<Task>();
                 int i = 0;
 
-                // Each process is responsible for n number of files to work through determined by the process count here. 
+                // Each process is responsible for n number of files to work through determined by the process count here.
                 int chunkCount = Math.Max(1, (int)Math.Ceiling((double)(eqFiles.Count / _processCount)));
                 foreach (var chunk in eqFiles.GroupBy(s => i++ / chunkCount).Select(g => g.ToArray()).ToArray())
                 {
@@ -94,8 +93,9 @@ namespace LanternExtractor
                     ArchiveExtractor.Extract(file, "Exports/", _logger, _settings);
                 }
             }
+            ClientDataCopier.Copy(archiveName, "Exports/", _logger, _settings);
 
-            Console.WriteLine($"Extraction complete ({(DateTime.Now - start).TotalSeconds})s");
+            Console.WriteLine($"Extraction complete ({(DateTime.Now - start).TotalSeconds:.00}s)");
         }
     }
 }

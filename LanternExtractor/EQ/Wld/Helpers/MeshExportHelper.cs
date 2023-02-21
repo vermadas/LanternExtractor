@@ -127,8 +127,6 @@ namespace LanternExtractor.EQ.Wld.Helpers
                     mesh, modelMatrix));
             }
             */
-
-            return originalVertices;
         }
 
         private static List<vec3> ShiftMeshVerticesWithIndices(int start, int end, Mesh mesh, mat4 boneMatrix)

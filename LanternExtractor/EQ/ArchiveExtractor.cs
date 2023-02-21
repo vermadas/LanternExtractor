@@ -35,7 +35,7 @@ namespace LanternExtractor.EQ
                         ? "characters/Textures/"
                         : ShortnameHelper.GetCorrectZoneShortname("global") + "/Characters/Textures/");
                         
-                    InitializeWldAndWriteTextures(globalChrWld, rootFolder, exportPath, GlobalReference.CharacterWldPfsArchive, settings, logger);
+                    InitializeWldAndWriteTextures(globalChrWld, rootFolder, exportPath, GlobalReference.CharacterWld.S3dArchiveReference, settings, logger);
 
                     return;
                 }
@@ -137,6 +137,8 @@ namespace LanternExtractor.EQ
                 {
                     var injectibleChrWld = new WldFileCharacters(wldFileInArchive, globalChrName, WldType.Characters, logger, settings);
                     injectibleChrWld.Initialize(rootFolder, false);
+                    s3dArchive.FilenameChanges = injectibleChrWld.FilenameChanges;
+                    injectibleChrWld.S3dArchiveReference = s3dArchive;
                     injectibleGlobalChrWlds.Add(injectibleChrWld);
                 }
                 else
@@ -156,64 +158,16 @@ namespace LanternExtractor.EQ
                 return;
             }
 
-            string mainChrFile;
-            int[] additionalChrFileIndices; 
-            if (pcEquipment.RaceGender.StartsWith("IK", System.StringComparison.InvariantCultureIgnoreCase))
-            {
-                mainChrFile = "global4_chr";
-                additionalChrFileIndices = new int[] { 0, 2, 3 };
-            }
-            else
-            {
-                mainChrFile = "global_chr";
-                additionalChrFileIndices = new int[] { 2, 3, 4 };
-            }
-            var globalChrPath = Path.Combine(settings.EverQuestDirectory, $"{mainChrFile}.s3d");
-            var chrS3dArchive = new PfsArchive(globalChrPath, logger);
-
-            if (!chrS3dArchive.Initialize())
-            {
-                logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + globalChrPath);
-                return;
-            }
-
-            var wldFileName = mainChrFile + LanternStrings.WldFormatExtension;
-            var wldFileInArchive = chrS3dArchive.GetFile(wldFileName);
-
-            var wldChrFilesToInject = new List<WldFile>();
-            foreach (var i in additionalChrFileIndices)
-            {
-                var additionalChrFile = i == 0 ? "global_chr" : $"global{i}_chr";
-                var additionalChrPath = Path.Combine(settings.EverQuestDirectory, $"{additionalChrFile}.s3d");
-                var additionalS3dArchive = new PfsArchive(additionalChrPath, logger);
-
-                if (!additionalS3dArchive.Initialize())
-                {
-                    logger.LogError("Failed to initialize PFS archive at path: " + additionalChrPath);
-                    return;
-                }
-
-                var additionalWldFileName = additionalChrFile + LanternStrings.WldFormatExtension;
-                var additionalWldFile = additionalS3dArchive.GetFile(additionalWldFileName);
-
-                var wldFileToInject = new WldFileCharacters(additionalWldFile, additionalChrFile, WldType.Characters,
-                    logger, settings);
-                wldFileToInject.Initialize(rootFolder, false);
-                wldChrFilesToInject.Add(wldFileToInject);
-            }
             var actorName = pcEquipment.RaceGender;
-            var wldChrFile = new WldFileCharacters(wldFileInArchive, actorName, WldType.Characters,
-                logger, settings, wldChrFilesToInject);
-
-            wldChrFile.Initialize(rootFolder, false);
-            chrS3dArchive.FilenameChanges = wldChrFile.FilenameChanges;
-            var includeList = wldChrFile.GetActorImageNames(actorName).ToList();
+            var includeList = GlobalReference.CharacterWld.GetActorImageNames(actorName).ToList();
             var exportFolder = Path.Combine(rootFolder, actorName, "Textures");
-            WriteWldTextures(chrS3dArchive, wldChrFile, exportFolder, logger, includeList);
-            (WldFileEquipment, WldFileEquipment) wldEqFiles = (null, null);
+            WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList, true);
+            WldFileEquipment mainWldEqFile = null;
+            WldFileEquipment injectedWldEqFile = null;
+            includeList.Clear();
             if (!string.IsNullOrEmpty(pcEquipment.Primary) || !string.IsNullOrEmpty(pcEquipment.Secondary))
             {
-                var eqFiles = new string[] { "gequip", "gequip2" };
+                var eqFiles = new string[] { "gequip2", "gequip" };
                 for (int i = 0; i < 2; i++)
                 {
                     var eqFile = eqFiles[i];
@@ -226,31 +180,33 @@ namespace LanternExtractor.EQ
                     }
                     var eqWldFileName = eqFile + LanternStrings.WldFormatExtension;
                     var eqWldFileInArchive = eqS3dArchive.GetFile(eqWldFileName);
-                    var wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings);
-                    wldEqFile.Initialize(rootFolder, false);
-                    eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
-                    includeList.Clear();
-                    if (pcEquipment.Primary != null)
-                    {
-                        includeList.AddRange(wldEqFile.GetActorImageNames(pcEquipment.Primary));
-                    }
-                    if (pcEquipment.Secondary != null)
-                    {
-                        includeList.AddRange(wldEqFile.GetActorImageNames(pcEquipment.Secondary));
-                    }
-                    WriteWldTextures(eqS3dArchive, wldEqFile, exportFolder, logger, includeList);
+                    WldFileEquipment wldEqFile;
                     if (i == 0)
                     {
-                        wldEqFiles.Item1 = wldEqFile;
+                        wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings);
+                        injectedWldEqFile = wldEqFile;
                     }
                     else
                     {
-                        wldEqFiles.Item2 = wldEqFile;
+                        wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings, new List<WldFile>() { injectedWldEqFile });
+                        mainWldEqFile = wldEqFile;
                     }
+                    wldEqFile.Initialize(rootFolder, false);
+                    eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
+                    wldEqFile.S3dArchiveReference = eqS3dArchive;
                 }
+                if (pcEquipment.Primary != null)
+                {
+                    includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Primary));
+                }
+                if (pcEquipment.Secondary != null)
+                {
+                    includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Secondary));
+                }
+                WriteWldTextures(mainWldEqFile, exportFolder, logger, includeList, true);
             }
 
-            ActorGltfExporter.ExportPlayerCharacter(wldChrFile, wldEqFiles, settings, logger, pcEquipment);
+            ActorGltfExporter.ExportPlayerCharacter(GlobalReference.CharacterWld, mainWldEqFile, settings, logger, pcEquipment);
         }
 
         private static void ExtractArchiveZone(string path, string rootFolder, ILogger logger, Settings settings,
@@ -283,7 +239,7 @@ namespace LanternExtractor.EQ
             if (settings.ExportZoneWithObjects)
             {
                 wldFile.BasePath = path;
-                wldFile.BaseS3DArchive = s3dArchive;
+                wldFile.S3dArchiveReference = s3dArchive;
                 wldFile.WldFileToInject = wldFileLit;
                 wldFile.RootFolder = rootFolder;
                 wldFile.ShortName = shortName;
@@ -392,17 +348,18 @@ namespace LanternExtractor.EQ
         private static void InitializeWldAndWriteTextures(WldFile wldFile, string rootFolder, string texturePath,
             PfsArchive s3dArchive, Settings settings, ILogger logger)
         {
+            wldFile.S3dArchiveReference = s3dArchive;
             if (settings.ModelExportFormat != ModelExportFormat.GlTF)
             {
                 wldFile.Initialize(rootFolder);
                 s3dArchive.FilenameChanges = wldFile.FilenameChanges;
-                WriteWldTextures(s3dArchive, wldFile, texturePath, logger);
+                WriteWldTextures(wldFile, texturePath, logger);
             }
             else // Exporting to GlTF requires that the texture images already be present
             {
                 wldFile.Initialize(rootFolder, false);
                 s3dArchive.FilenameChanges = wldFile.FilenameChanges;
-                WriteWldTextures(s3dArchive, wldFile, texturePath, logger);
+                WriteWldTextures(wldFile, texturePath, logger);
                 wldFile.ExportData();
             }
         }
@@ -449,28 +406,40 @@ namespace LanternExtractor.EQ
         /// <param name="s3dArchive"></param>
         /// <param name="wldFile"></param>
         /// <param name="zoneName"></param>
-        public static void WriteWldTextures(PfsArchive s3dArchive, WldFile wldFile, string zoneName, 
-            ILogger logger, ICollection<string> includeList = null)
+        public static void WriteWldTextures(WldFile wldFile, string zoneName, 
+            ILogger logger, ICollection<string> includeList = null, bool includeInjectedWlds = false)
         {
-            var allBitmaps = wldFile.GetAllBitmapNames(includeList);
-            var maskedBitmaps = wldFile.GetMaskedBitmaps(includeList);
+            var allBitmaps = wldFile.GetAllBitmapNames(includeList, includeInjectedWlds);
+            var maskedBitmaps = wldFile.GetMaskedBitmaps(includeList, includeInjectedWlds);
 
+            var s3dArchives = new List<PfsArchive>() { wldFile.S3dArchiveReference };
+            if (includeInjectedWlds)
+            {
+                s3dArchives.AddRange(wldFile.GetInjectedWldsAssociatedS3dArchives());
+            }
             foreach (var bitmap in allBitmaps)
             {
-                string filename = bitmap;
-                if (s3dArchive.FilenameChanges != null &&
-                    s3dArchive.FilenameChanges.ContainsKey(Path.GetFileNameWithoutExtension(bitmap)))
+                PfsFile pfsFile = null;
+                foreach (var s3dArchive in s3dArchives)
                 {
-                    filename = s3dArchive.FilenameChanges[Path.GetFileNameWithoutExtension(bitmap)] + ".bmp";
+                    string filename = bitmap;
+                    if (s3dArchive.FilenameChanges != null &&
+                        s3dArchive.FilenameChanges.ContainsKey(Path.GetFileNameWithoutExtension(bitmap)))
+                    {
+                        filename = s3dArchive.FilenameChanges[Path.GetFileNameWithoutExtension(bitmap)] + ".bmp";
+                    }
+
+                    pfsFile = s3dArchive.GetFile(filename);
+
+                    if (pfsFile != null)
+                    {
+                        break;
+                    }
                 }
-
-                var pfsFile = s3dArchive.GetFile(filename);
-
                 if (pfsFile == null)
                 {
                     continue;
                 }
-
                 bool isMasked = maskedBitmaps != null && maskedBitmaps.Contains(bitmap);
                 ImageWriter.WriteImageAsPng(pfsFile.Bytes, zoneName, bitmap, isMasked, logger);
             }

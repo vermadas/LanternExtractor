@@ -585,8 +585,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     _logger.LogError($"Material: {materialName} image not found at '{imagePath}'!");
                 }
                 Materials.Add(materialName, GetBlankMaterial(materialName));
-                continue;
             }
+
             ImageBuilder imageBuilder;
             if (ShaderTypesThatNeedAlphaAddedToImage.Contains(eqMaterial.ShaderType))
             {

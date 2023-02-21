@@ -54,14 +54,8 @@ namespace LanternExtractor
             }
 
             var archiveName = args[0];
-
             if (archiveName.Equals("pc", StringComparison.InvariantCultureIgnoreCase))
             {
-                if (!File.Exists(Path.Combine(_settings.EverQuestDirectory, "global_chr.s3d")))
-                {
-                    Console.WriteLine("No valid EQ files found at path: " + _settings.EverQuestDirectory);
-                    return;
-                }
                 var pcEquipJsonFilePath = "PcEquip.json";
                 if (!File.Exists(pcEquipJsonFilePath))
                 {
@@ -69,6 +63,7 @@ namespace LanternExtractor
                     return;
                 }
 
+                ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
                 ArchiveExtractor.ExportSinglePlayerCharacterGltf(pcEquipJsonFilePath, "Exports/", _logger, _settings);
                 Console.WriteLine($"Single player character export complete ({(DateTime.Now - start).TotalSeconds})s");
 

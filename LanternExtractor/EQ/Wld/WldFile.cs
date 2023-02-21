@@ -20,13 +20,13 @@ namespace LanternExtractor.EQ.Wld
         public string RootExportFolder;
         public string ZoneShortname => _zoneName;
 
-
+        public PfsArchive S3dArchiveReference { get; set; }
         public WldType WldType => _wldType;
 
         /// <summary>
         /// The link between fragment types and fragment classes
         /// </summary>
-        private Dictionary<int, Func<WldFragment>> _fragmentBuilder;
+        // private Dictionary<int, Func<WldFragment>> _fragmentBuilder;
 
         /// <summary>
         /// A link of indices to fragments
@@ -87,7 +87,6 @@ namespace LanternExtractor.EQ.Wld
         private bool _isInitialized;
 
         protected readonly List<WldFile> _wldFilesToInject;
-
 
         public Dictionary<string, string> FilenameChanges = new Dictionary<string, string>();
 
@@ -184,7 +183,7 @@ namespace LanternExtractor.EQ.Wld
 
             ParseStringHash(WldStringDecoder.DecodeString(stringHash));
 
-            long readPosition = 0;
+            // long readPosition = 0;
 
             for (int i = 0; i < fragmentCount; ++i)
             {
@@ -244,6 +243,19 @@ namespace LanternExtractor.EQ.Wld
             return _fragmentTypeDictionary[typeof(T)].Cast<T>().ToList();
         }
 
+        public List<T> GetFragmentsOfTypeIncludingInjectedWlds<T>() where T : WldFragment
+        {
+            if (_wldFilesToInject == null)
+            {
+                return GetFragmentsOfType<T>();
+            }
+            var wldFileList = new List<WldFile>() { this };
+            wldFileList.AddRange(_wldFilesToInject);
+            var wldFragments = new List<T>();
+            wldFileList.ForEach(w => wldFragments.AddRange(w.GetFragmentsOfType<T>()));
+            return wldFragments;
+        }
+
         public T GetFragmentByName<T>(string fragmentName) where T : WldFragment
         {
             if (!_fragmentNameDictionary.ContainsKey(fragmentName))
@@ -252,6 +264,25 @@ namespace LanternExtractor.EQ.Wld
             }
 
             return _fragmentNameDictionary[fragmentName] as T;
+        }
+
+        public T GetFragmentByNameIncludingInjectedWlds<T>(string fragmentName) where T : WldFragment
+        {
+            if (_wldFilesToInject == null)
+            {
+                return GetFragmentByName<T>(fragmentName);
+            }
+            var wldFileList = new List<WldFile>() { this };
+            wldFileList.AddRange(_wldFilesToInject);
+            foreach(var wldFile in wldFileList)
+            {
+                var fragment = wldFile.GetFragmentByName<T>(fragmentName);
+                if (fragment != null)
+                {
+                    return fragment;
+                }
+            }
+            return default(T);
         }
 
         protected virtual void ProcessData()
@@ -294,9 +325,9 @@ namespace LanternExtractor.EQ.Wld
         /// Used in exporting the bitmaps from the PFS archive
         /// </summary>
         /// <returns>Dictionary with material to shader mapping</returns>
-        public List<string> GetMaskedBitmaps(ICollection<string> includeList = null)
+        public List<string> GetMaskedBitmaps(ICollection<string> includeList = null, bool includeInjectedWlds = false)
         {
-            var materialLists = GetFragmentsOfType<MaterialList>();
+            var materialLists = includeInjectedWlds ? GetFragmentsOfTypeIncludingInjectedWlds<MaterialList>() : GetFragmentsOfType<MaterialList>();
 
             if (materialLists.Count == 0)
             {
@@ -391,7 +422,8 @@ namespace LanternExtractor.EQ.Wld
             {
                 actorName += "_ACTORDEF";
             }
-            var actor = GetFragmentByName<Actor>(actorName);
+            var actor = GetFragmentByNameIncludingInjectedWlds<Actor>(actorName);
+
             if (actor == null)
             {
                 return imageNames;
@@ -582,12 +614,12 @@ namespace LanternExtractor.EQ.Wld
             }
         }
 
-        public List<string> GetAllBitmapNames(ICollection<string> includeList = null)
+        public List<string> GetAllBitmapNames(ICollection<string> includeList = null, bool includeInjectedWlds = false)
         {
-            List<string> bitmaps = new List<string>();
+            var bitmaps = new List<string>();
             if (includeList != null && !includeList.Any()) return bitmaps;
 
-            var bitmapFragments = GetFragmentsOfType<BitmapName>();
+            var bitmapFragments = includeInjectedWlds ? GetFragmentsOfTypeIncludingInjectedWlds<BitmapName>() : GetFragmentsOfType<BitmapName>();
             foreach (var fragment in bitmapFragments)
             {
                 bitmaps.Add(fragment.Filename);
@@ -598,6 +630,11 @@ namespace LanternExtractor.EQ.Wld
                 return bitmaps.Where(b => includeList.Contains(b)).ToList();
             }
             return bitmaps;
+        }
+
+        public List<PfsArchive> GetInjectedWldsAssociatedS3dArchives()
+        {
+            return _wldFilesToInject?.Select(w => w.S3dArchiveReference).ToList() ?? Enumerable.Empty<PfsArchive>().ToList();
         }
 
         private void BuildSkeletonData()

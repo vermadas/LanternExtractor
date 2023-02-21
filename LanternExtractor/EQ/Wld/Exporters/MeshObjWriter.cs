@@ -42,7 +42,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private bool _exportHiddenGeometry;
 
         private ObjExportType _objExportType;
-        private int _usedVertices;
+        // private int _usedVertices;
         private string _forcedMeshList;
 
         private List<StringBuilder> _frames = new List<StringBuilder>();
@@ -400,7 +400,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             base.ClearExportData();
             _activeMaterial = null;
-            _usedVertices = 0;
+            // _usedVertices = 0;
             _baseVertex = 0;
             _isFirstMesh = true;
         }

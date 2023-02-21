@@ -38,13 +38,13 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
 
-        public static void ExportPlayerCharacter(WldFileCharacters wldChrFile, (WldFileEquipment, WldFileEquipment) wldEqFiles,
+        public static void ExportPlayerCharacter(WldFileCharacters wldChrFile, WldFileEquipment wldEqFile,
             Settings settings, ILogger logger, PlayerCharacterModel playerCharacterModel)
         {
             var actorName = playerCharacterModel.RaceGender;
             var lookupName = $"{actorName}_ACTORDEF";
 
-            var actor = wldChrFile.GetFragmentByName<Actor>(lookupName);
+            var actor = wldChrFile.GetFragmentByNameIncludingInjectedWlds<Actor>(lookupName);
 
             var skeleton = actor?.SkeletonReference?.SkeletonHierarchy;
 
@@ -66,20 +66,16 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var materialLists = new HashSet<MaterialList>();
             materialLists.Add(bodyMesh.MaterialList);
             materialLists.Add(headMesh.MaterialList);
-            if (wldEqFiles.Item1 != null)
+            if (wldEqFile != null)
             {
                 if (!string.IsNullOrEmpty(playerCharacterModel.Primary))
                 {
                     var primaryActorLookupName = $"{playerCharacterModel.Primary}_ACTORDEF";
-                    var primaryActor = wldEqFiles.Item1.GetFragmentByName<Actor>(primaryActorLookupName);
+                    var primaryActor = wldEqFile.GetFragmentByNameIncludingInjectedWlds<Actor>(primaryActorLookupName);
                     if (primaryActor == null)
                     {
-                        primaryActor = wldEqFiles.Item2.GetFragmentByName<Actor>(primaryActorLookupName);
-                        if (primaryActor == null)
-                        {
-                            logger.LogError($"Player character model primary '{primaryActorLookupName}' not found!");
-                            return;
-                        }
+                        logger.LogError($"Player character model primary '{primaryActorLookupName}' not found!");
+                        return;
                     }
                     if (primaryActor.ActorType == ActorType.Static)
                     {
@@ -104,15 +100,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 if (!string.IsNullOrEmpty(playerCharacterModel.Secondary))
                 {
                     var secondaryActorLookupName = $"{playerCharacterModel.Secondary}_ACTORDEF";
-                    var secondaryActor = wldEqFiles.Item1.GetFragmentByName<Actor>(secondaryActorLookupName);
+                    var secondaryActor = wldEqFile.GetFragmentByNameIncludingInjectedWlds<Actor>(secondaryActorLookupName);
                     if (secondaryActor == null)
                     {
-                        secondaryActor = wldEqFiles.Item2.GetFragmentByName<Actor>(secondaryActorLookupName);
-                        if (secondaryActor == null)
-                        {
-                            logger.LogError($"Player character model secondary '{secondaryActorLookupName}' not found!");
-                            return;
-                        }
+                        logger.LogError($"Player character model secondary '{secondaryActorLookupName}' not found!");
+                        return;
                     }
                     secondaryMeshOrSkeleton = secondaryActor.MeshReference?.Mesh;
                     if (secondaryMeshOrSkeleton != null)
@@ -122,11 +114,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
             }
 
-            var exportFolder = wldChrFile.GetExportFolderForWldType();
-            if (exportFolder.EndsWith("Characters/"))
-            {
-                exportFolder = exportFolder.Replace("Characters/", "");
-            }
+            var exportFolder = Path.Combine(wldChrFile.RootExportFolder, actorName);
             gltfWriter.GenerateGltfMaterials(materialLists, Path.Combine(exportFolder, "Textures"), true);
 
             MeshExportHelper.ShiftMeshVertices(bodyMesh, skeleton, true, "pos", 0);
@@ -195,7 +183,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
             }
 
-            var exportFilePath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}.gltf";
+            var exportFilePath = Path.Combine(exportFolder, $"{FragmentNameCleaner.CleanName(skeleton)}.gltf");
             gltfWriter.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
         }
 
@@ -214,7 +202,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                 // Get object instances within this zone file to map up and instantiate later
                 var zoneObjectsFileInArchive =
-                    wldFileZone.BaseS3DArchive.GetFile("objects" + LanternStrings.WldFormatExtension);
+                    wldFileZone.S3dArchiveReference.GetFile("objects" + LanternStrings.WldFormatExtension);
                 if (zoneObjectsFileInArchive != null)
                 {
                     var zoneObjectsWldFile = new WldFileZoneObjects(zoneObjectsFileInArchive, shortName,
@@ -234,8 +222,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var objWldFile = new WldFileZone(s3dObjArchive.GetFile(wldFileName), shortName, WldType.Objects,
                         logger, settings);
                     objWldFile.Initialize(rootFolder, false);
-                    ArchiveExtractor.WriteWldTextures(s3dObjArchive, objWldFile,
-                        rootFolder + shortName + "/Zone/Textures/", logger);
+                    s3dObjArchive.FilenameChanges = objWldFile.FilenameChanges;
+                    objWldFile.S3dArchiveReference = s3dObjArchive;
+                    ArchiveExtractor.WriteWldTextures(objWldFile, rootFolder + shortName + "/Zone/Textures/", logger);
                     actors.AddRange(objWldFile.GetFragmentsOfType<Actor>());
                     materialLists.AddRange(objWldFile.GetFragmentsOfType<MaterialList>());
                 }

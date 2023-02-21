@@ -67,6 +67,11 @@ namespace LanternExtractor
         public bool ExportEquipmentToSingleFolder { get; private set; }
 
         /// <summary>
+        /// Export all sound files to a single folder
+        /// </summary>
+        public bool ExportSoundsToSingleFolder { get; private set; }
+
+        /// <summary>
         /// Exports all OBJ frames for all animations
         /// </summary>
         public bool ExportAllAnimationFrames { get; private set; }
@@ -91,6 +96,17 @@ namespace LanternExtractor
         /// more portable.
         /// </summary>
         public bool ExportGltfInGlbFormat { get; private set; }
+
+        /// <summary>
+        /// Additional files that should be copied when extracting with `all` or `clientdata`
+        /// </summary>
+        public string ClientDataToCopy { get; private set; }
+
+        /// <summary>
+        /// For skeletal models, if additional compatible animations are available
+        /// in the global character files, include them in the export
+        /// </summary>
+        public bool ExportAdditionalAnimations { get; private set; }
 
         /// <summary>
         /// The verbosity of the logger
@@ -122,7 +138,7 @@ namespace LanternExtractor
 
             try
             {
-                settingsText = System.IO.File.ReadAllText(_settingsFilePath);
+                settingsText = File.ReadAllText(_settingsFilePath);
             }
             catch (Exception e)
             {
@@ -130,7 +146,7 @@ namespace LanternExtractor
                 return;
             }
 
-            Dictionary<string, string> parsedSettings = TextParser.ParseTextToDictionary(settingsText, '=', '#');
+            var parsedSettings = TextParser.ParseTextToDictionary(settingsText, '=', '#');
 
             if (parsedSettings == null)
             {
@@ -181,6 +197,11 @@ namespace LanternExtractor
                 ExportEquipmentToSingleFolder = Convert.ToBoolean(parsedSettings["ExportEquipmentToSingleFolder"]);
             }
 
+            if (parsedSettings.ContainsKey("ExportSoundsToSingleFolder"))
+            {
+                ExportSoundsToSingleFolder = Convert.ToBoolean(parsedSettings["ExportSoundsToSingleFolder"]);
+            }
+
             if (parsedSettings.ContainsKey("ExportAllAnimationFrames"))
             {
                 ExportAllAnimationFrames = Convert.ToBoolean(parsedSettings["ExportAllAnimationFrames"]);
@@ -194,6 +215,16 @@ namespace LanternExtractor
             if (parsedSettings.ContainsKey("ExportGltfInGlbFormat"))
             {
                 ExportGltfInGlbFormat = Convert.ToBoolean(parsedSettings["ExportGltfInGlbFormat"]);
+            }
+			
+            if (parsedSettings.ContainsKey("ExportAdditionalAnimations"))
+            {
+                ExportAdditionalAnimations = Convert.ToBoolean(parsedSettings["ExportAdditionalAnimations"]);
+            }
+			
+            if (parsedSettings.ContainsKey("ClientDataToCopy"))
+            {
+                ClientDataToCopy = parsedSettings["ClientDataToCopy"];
             }
 
             if (parsedSettings.ContainsKey("LoggerVerbosity"))

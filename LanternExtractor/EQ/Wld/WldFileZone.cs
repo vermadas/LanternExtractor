@@ -33,7 +33,7 @@ namespace LanternExtractor.EQ.Wld
             base.ProcessData();
             LinkBspReferences();
 
-            if (_wldsToInject != null && _wldsToInject.Any())
+            if (_wldFilesToInject != null)
             {
                 ImportVertexColors();
             }
@@ -70,10 +70,8 @@ namespace LanternExtractor.EQ.Wld
         private void ImportVertexColors()
         {
             var colors = new List<VertexColors>();
-            foreach (var wldToInject in _wldsToInject)
-            {
-                colors.AddRange(wldToInject.GetFragmentsOfType<VertexColors>());
-            }
+            
+            _wldFilesToInject?.ForEach(w => colors.AddRange(w?.GetFragmentsOfType<VertexColors>() ?? Enumerable.Empty<VertexColors>()));
 
             if (colors.Count == 0)
             {

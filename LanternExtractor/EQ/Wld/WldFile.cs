@@ -81,14 +81,15 @@ namespace LanternExtractor.EQ.Wld
         /// </summary>
         private bool _isNewWldFormat;
 
-        protected readonly ICollection<WldFile> _wldsToInject;
+        /// <summary>
+        /// Initialized flag so we do not initialize more than once
+        /// </summary>
+        private bool _isInitialized;
+
+        protected readonly List<WldFile> _wldFilesToInject;
 
 
         public Dictionary<string, string> FilenameChanges = new Dictionary<string, string>();
-
-        protected WldFile(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
-            WldFile fileToInject) :
-            this(wldFile, zoneName, type, logger, settings, new List<WldFile>() { fileToInject }) { }
 
         /// <summary>
         /// Constructor setting data references used during the initialization process
@@ -98,14 +99,25 @@ namespace LanternExtractor.EQ.Wld
         /// <param name="type">The type of WLD - used to determine what to extract</param>
         /// <param name="logger">The logger used for debug output</param>
         protected WldFile(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
-            ICollection<WldFile> filesToInject)
+            WldFile fileToInject)
+            : this(wldFile, zoneName, type, logger, settings, new List<WldFile>() { fileToInject }) { }
+
+        /// <summary>
+        /// Constructor setting data references used during the initialization process
+        /// </summary>
+        /// <param name="wldFile">The WLD file bytes contained in the PFS file</param>
+        /// <param name="zoneName">The shortname of the zone</param>
+        /// <param name="type">The type of WLD - used to determine what to extract</param>
+        /// <param name="logger">The logger used for debug output</param>
+        protected WldFile(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
+            List<WldFile> wldFilesToInject)
         {
             _wldFile = wldFile;
             _zoneName = zoneName.ToLower();
             _wldType = type;
             _logger = logger;
             _settings = settings;
-            _wldsToInject = filesToInject;
+            _wldFilesToInject = wldFilesToInject;
         }
 
         /// <summary>
@@ -113,6 +125,15 @@ namespace LanternExtractor.EQ.Wld
         /// </summary>
         public virtual bool Initialize(string rootFolder, bool exportData = true)
         {
+            if (_isInitialized)
+            {
+                if (exportData)
+                {
+                    ExportData();
+                }
+                return true;
+            }
+
             RootExportFolder = rootFolder;
             _logger.LogInfo("Extracting WLD archive: " + _wldFile.Name);
             _logger.LogInfo("-----------------------------------");
@@ -209,6 +230,7 @@ namespace LanternExtractor.EQ.Wld
                 ExportData();
             }
 
+            _isInitialized = true;
             return true;
         }
 
@@ -348,7 +370,8 @@ namespace LanternExtractor.EQ.Wld
                 case WldType.Sky:
                     return GetRootExportFolder();
                 case WldType.Characters:
-                    if (_settings.ExportCharactersToSingleFolder)
+                    if (_settings.ExportCharactersToSingleFolder && 
+                        _settings.ModelExportFormat == ModelExportFormat.Intermediate)
                     {
                         return GetRootExportFolder();
                     }
@@ -435,7 +458,11 @@ namespace LanternExtractor.EQ.Wld
 
         private void ExportActors()
         {
-            if (GetFragmentsOfType<Actor>().Count == 0)
+            var actors = GetFragmentsOfType<Actor>();
+
+            _wldFilesToInject?.ForEach(w => actors.AddRange(w.GetFragmentsOfType<Actor>()));
+
+            if (actors.Count == 0)
             {
                 return;
             }
@@ -458,7 +485,7 @@ namespace LanternExtractor.EQ.Wld
                 actorWriterSprite2d = new ActorWriter(ActorType.Sprite);
             }
 
-            foreach (var actorFragment in GetFragmentsOfType<Actor>())
+            foreach (var actorFragment in actors)
             {
                 actorWriterStatic.AddFragmentData(actorFragment);
                 actorWriterSkeletal.AddFragmentData(actorFragment);
@@ -482,18 +509,15 @@ namespace LanternExtractor.EQ.Wld
 
             if (skeletons.Count == 0)
             {
-                if (_wldsToInject == null || !_wldsToInject.Any())
+                if (_wldFilesToInject == null)
                 {
                     _logger.LogWarning("Cannot export animations. No model references.");
                     return;
                 }
 
-                foreach (var wldToInject in _wldsToInject)
-                {
-                    skeletons.AddRange(wldToInject.GetFragmentsOfType<SkeletonHierarchy>());
-                }
+                _wldFilesToInject.ForEach(w => skeletons.AddRange(w?.GetFragmentsOfType<SkeletonHierarchy>() ?? Enumerable.Empty<SkeletonHierarchy>()));
 
-                if (skeletons == null)
+                if (!skeletons.Any())
                 {
                     _logger.LogWarning("Cannot export animations. No model references.");
                     return;
@@ -537,6 +561,12 @@ namespace LanternExtractor.EQ.Wld
                     skeletonWriter.ClearExportData();
                 }
 
+                if (_settings.ExportAdditionalAnimations &&
+                    _settings.ModelExportFormat == ModelExportFormat.Intermediate &&
+                    !ZoneShortname.StartsWith("global"))
+                {
+                    GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
+                }
 
                 foreach (var animation in skeleton.Animations)
                 {
@@ -576,13 +606,10 @@ namespace LanternExtractor.EQ.Wld
 
             foreach (var skeleton in skeletons)
             {
-                skeleton.BuildSkeletonData(_wldType == WldType.Characters);
+                skeleton.BuildSkeletonData(_wldType == WldType.Characters || _settings.ModelExportFormat == ModelExportFormat.Intermediate);
             }
 
-            if (_wldsToInject != null && _wldsToInject.Any())
-            {
-                _wldsToInject.ToList().ForEach(w => (w as WldFileCharacters)?.BuildSkeletonData());
-            }
+            _wldFilesToInject?.ForEach(w => (w as WldFileCharacters)?.BuildSkeletonData());
         }
     }
 }

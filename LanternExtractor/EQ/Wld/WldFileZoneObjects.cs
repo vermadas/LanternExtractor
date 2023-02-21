@@ -50,9 +50,9 @@ namespace LanternExtractor.EQ.Wld
                 colorWriter.ClearExportData();
             }
             
-            foreach (var wldToInject in _wldsToInject ?? Enumerable.Empty<WldFile>())
+            if (_wldFilesToInject != null)
             {
-                instanceList = wldToInject.GetFragmentsOfType<ObjectInstance>();
+                _wldFilesToInject?.ForEach(w => instanceList.AddRange(w?.GetFragmentsOfType<ObjectInstance>() ?? Enumerable.Empty<ObjectInstance>())) ;
 
                 foreach (var instance in instanceList)
                 {

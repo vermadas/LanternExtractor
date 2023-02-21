@@ -210,10 +210,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             if (settings.ExportZoneWithObjects)
             {
-                var rootFolder = wldFileZone.RootFolder; 
+                var rootFolder = wldFileZone.RootFolder;
 
                 // Get object instances within this zone file to map up and instantiate later
-                var zoneObjectsFileInArchive = wldFileZone.BaseS3DArchive.GetFile("objects" + LanternStrings.WldFormatExtension);
+                var zoneObjectsFileInArchive =
+                    wldFileZone.BaseS3DArchive.GetFile("objects" + LanternStrings.WldFormatExtension);
                 if (zoneObjectsFileInArchive != null)
                 {
                     var zoneObjectsWldFile = new WldFileZoneObjects(zoneObjectsFileInArchive, shortName,
@@ -230,9 +231,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 if (s3dObjArchive.Initialize())
                 {
                     string wldFileName = objArchive + LanternStrings.WldFormatExtension;
-                    var objWldFile = new WldFileZone(s3dObjArchive.GetFile(wldFileName), shortName, WldType.Objects, logger, settings);
+                    var objWldFile = new WldFileZone(s3dObjArchive.GetFile(wldFileName), shortName, WldType.Objects,
+                        logger, settings);
                     objWldFile.Initialize(rootFolder, false);
-                    ArchiveExtractor.WriteWldTextures(s3dObjArchive, objWldFile, rootFolder + shortName + "/Zone/Textures/", logger);
+                    ArchiveExtractor.WriteWldTextures(s3dObjArchive, objWldFile,
+                        rootFolder + shortName + "/Zone/Textures/", logger);
                     actors.AddRange(objWldFile.GetFragmentsOfType<Actor>());
                     materialLists.AddRange(objWldFile.GetFragmentsOfType<MaterialList>());
                 }
@@ -250,11 +253,12 @@ namespace LanternExtractor.EQ.Wld.Exporters
             foreach (var mesh in zoneMeshes)
             {
                 gltfWriter.AddFragmentData(
-                    mesh: mesh, 
-                    generationMode: ModelGenerationMode.Combine, 
+                    mesh: mesh,
+                    generationMode: ModelGenerationMode.Combine,
                     meshNameOverride: shortName,
                     isZoneMesh: true);
             }
+
             gltfWriter.AddCombinedMeshToScene(true, shortName);
 
             foreach (var actor in actors)
@@ -264,7 +268,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var objMesh = actor.MeshReference?.Mesh;
                     if (objMesh == null) continue;
 
-                    var instances = objects.FindAll(o => objMesh.Name.StartsWith(o.ObjectName, StringComparison.InvariantCultureIgnoreCase));
+                    var instances = objects.FindAll(o =>
+                        objMesh.Name.StartsWith(o.ObjectName, StringComparison.InvariantCultureIgnoreCase));
                     var instanceIndex = 0;
                     foreach (var instance in instances)
                     {
@@ -272,9 +277,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
                         // TODO: this could be more nuanced, I think this still exports trees below the zone floor
 
                         gltfWriter.AddFragmentData(
-                            mesh: objMesh, 
+                            mesh: objMesh,
                             generationMode: ModelGenerationMode.Separate,
-                            objectInstance: instance, 
+                            objectInstance: instance,
                             instanceIndex: instanceIndex++,
                             isZoneMesh: true);
                     }
@@ -284,7 +289,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var skeleton = actor.SkeletonReference?.SkeletonHierarchy;
                     if (skeleton == null) continue;
 
-                    var instances = objects.FindAll(o => skeleton.Name.StartsWith(o.ObjectName, StringComparison.InvariantCultureIgnoreCase));
+                    var instances = objects.FindAll(o =>
+                        skeleton.Name.StartsWith(o.ObjectName, StringComparison.InvariantCultureIgnoreCase));
                     var instanceIndex = 0;
                     var combinedMeshName = FragmentNameCleaner.CleanName(skeleton);
                     var addedMeshOnce = false;
@@ -293,10 +299,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     {
                         if (instance.Position.z < short.MinValue) continue;
 
-                        if (!addedMeshOnce || 
-                            (settings.ExportGltfVertexColors 
-                                && instance.Colors?.Colors != null 
-                                && instance.Colors.Colors.Any()))
+                        if (!addedMeshOnce ||
+                            (settings.ExportGltfVertexColors
+                             && instance.Colors?.Colors != null
+                             && instance.Colors.Colors.Any()))
                         {
                             for (int i = 0; i < skeleton.Skeleton.Count; i++)
                             {
@@ -304,13 +310,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
                                 var mesh = bone?.MeshReference?.Mesh;
                                 if (mesh != null)
                                 {
-                                    var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton, false, "pos", 0, i);
+                                    var originalVertices =
+                                        MeshExportHelper.ShiftMeshVertices(mesh, skeleton, false, "pos", 0, i);
                                     gltfWriter.AddFragmentData(
-                                        mesh: mesh, 
+                                        mesh: mesh,
                                         generationMode: ModelGenerationMode.Combine,
-                                        meshNameOverride: combinedMeshName, 
-                                        singularBoneIndex: i, 
-                                        objectInstance: instance, 
+                                        meshNameOverride: combinedMeshName,
+                                        singularBoneIndex: i,
+                                        objectInstance: instance,
                                         instanceIndex: instanceIndex,
                                         isZoneMesh: true);
                                     mesh.Vertices = originalVertices;
@@ -337,19 +344,13 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
             var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
-            
+
             var exportFolder = wldFile.GetExportFolderForWldType();
 
-            // HACK - the helper method GetExportFolderForWldType() is looking at
-            // this setting and returns the base zone folder if true
-            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters)
-            {
-                exportFolder = $"{exportFolder}Characters/";
-            }
             var textureImageFolder = $"{exportFolder}Textures/";
             gltfWriter.GenerateGltfMaterials(new List<MaterialList>() { mesh.MaterialList }, textureImageFolder);
             gltfWriter.AddFragmentData(mesh);
-           
+
             var exportFilePath = $"{exportFolder}{FragmentNameCleaner.CleanName(mesh)}.gltf";
             gltfWriter.WriteAssetToFile(exportFilePath, true);
         }
@@ -360,9 +361,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             if (skeleton == null) return;
 
+            if (settings.ExportAdditionalAnimations && wldFile.ZoneShortname != "global")
+            {
+                GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
+            }
+
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
             var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
-            
+
             var materialLists = new HashSet<MaterialList>();
             var skeletonMeshMaterialList = skeleton.Meshes?.FirstOrDefault()?.MaterialList;
             if (skeletonMeshMaterialList != null)
@@ -380,12 +386,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var exportFolder = wldFile.GetExportFolderForWldType();
-            // HACK - the helper method GetExportFolderForWldType() is looking at
-            // this setting and returns the base zone folder if true
-            if (settings.ExportCharactersToSingleFolder && wldFile.WldType == WldType.Characters)
-            {
-                exportFolder = $"{exportFolder}Characters/";
-            }
+
             var textureImageFolder = $"{exportFolder}Textures/";
             gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
 
@@ -401,6 +402,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     gltfWriter.AddFragmentData(mesh, skeleton, null, i);
                 }
             }
+
             if (skeleton.Meshes != null)
             {
                 foreach (var mesh in skeleton.Meshes)
@@ -421,17 +423,20 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     MeshExportHelper.ShiftMeshVertices(secondaryMesh, skeleton,
                         wldFile.WldType == WldType.Characters, "pos", 0);
                     secondaryGltfWriter.AddFragmentData(secondaryMesh, skeleton);
-                    secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
+                    secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters,
+                        true);
 
                     if (settings.ExportAllAnimationFrames)
                     {
                         secondaryGltfWriter.AddFragmentData(secondaryMesh, skeleton);
-                        foreach (var animationKey in skeleton.Animations.Keys)
+                        foreach (var animationKey in skeleton.Animations.Keys
+							.OrderBy(k => k, new AnimationKeyComparer()))
                         {
-                            secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, wldFile.WldType == WldType.Characters, false);
+                            secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, 
+								wldFile.WldType == WldType.Characters, false);
                         }
                     }
-                    
+
                     var secondaryExportPath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}_{i:00}.gltf";
                     secondaryGltfWriter.WriteAssetToFile(secondaryExportPath, true, skeleton.ModelBase);
                 }
@@ -441,12 +446,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             if (settings.ExportAllAnimationFrames)
             {
-                foreach (var animationKey in skeleton.Animations.Keys)
+                foreach (var animationKey in skeleton.Animations.Keys
+					.OrderBy(k => k, new AnimationKeyComparer()))
                 {
-                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, wldFile.WldType == WldType.Characters, false);
+                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, 
+						wldFile.WldType == WldType.Characters, false);
                 }
             }
-           
+
             var exportFilePath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}.gltf";
             gltfWriter.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
 
@@ -462,7 +469,38 @@ namespace LanternExtractor.EQ.Wld.Exporters
         }
     }
 
-    public class PlayerCharacterModel
+    public class AnimationKeyComparer : Comparer<string>
+    {
+        public override int Compare(string x, string y)
+        {
+            if ((x ?? string.Empty) == (y ?? string.Empty)) return 0;
+            if (x.ToLower() == y.ToLower()) return 0;
+            if (string.IsNullOrEmpty(x)) return -1;
+            if (string.IsNullOrEmpty(y)) return 1;
+
+            if (x.ToLower() == "pos") return -1;
+            if (y.ToLower() == "pos") return 1;
+
+            if (x.ToLower() == "drf") return -1;
+            if (y.ToLower() == "drf") return 1;
+
+            var animationCharCompare =
+                AnimationSort.IndexOf(x.Substring(0, 1))
+                .CompareTo(
+                AnimationSort.IndexOf(y.Substring(0, 1)));
+
+            if (animationCharCompare != 0) return animationCharCompare;
+
+            return int.Parse(x.Substring(1, 2))
+                .CompareTo(
+                int.Parse(y.Substring(1, 2)));
+        }
+
+        // Passive, Idle, Locomotion, Combat, Damage, Spell/Instrument, Social
+        private const string AnimationSort = "polcdts";
+    }
+	
+	public class PlayerCharacterModel
     {
         public int Face { get; set; }
         public string RaceGender { get; set; }

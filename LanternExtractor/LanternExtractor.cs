@@ -32,7 +32,7 @@ namespace LanternExtractor
 
                 foreach (var fileName in zoneFiles)
                 {
-                    Console.WriteLine($"Startined to extract {fileName}");
+                    Console.WriteLine($"Started extracting {fileName}");
                     ArchiveExtractor.Extract(fileName, "Exports/", _logger, _settings);
                     Console.WriteLine($"Finished extracting {fileName}");
                 }
@@ -47,13 +47,13 @@ namespace LanternExtractor
 
             DateTime start = DateTime.Now;
 
-            if (false /*DEBUG*/ && args.Length != 1)
+            if (args.Length != 1)
             {
                 Console.WriteLine("Usage: lantern.exe <filename/shortname/pc/all>");
                 return;
             }
 
-            string archiveName = "pc"; // args[0]; // DEBUG
+            var archiveName = args[0];
 
             if (archiveName.Equals("pc", StringComparison.InvariantCultureIgnoreCase))
             {
@@ -76,20 +76,25 @@ namespace LanternExtractor
             }
 
             List<string> eqFiles = EqFileHelper.GetValidEqFilePaths(_settings.EverQuestDirectory, archiveName);
+            eqFiles.Sort();
 
-            if (eqFiles.Count == 0)
+            if (eqFiles.Count == 0 && !EqFileHelper.IsClientDataFile(archiveName))
             {
                 Console.WriteLine("No valid EQ files found for: '" + archiveName + "' at path: " +
                                   _settings.EverQuestDirectory);
                 return;
             }
 
+            if (_settings.ExportAdditionalAnimations && !_settings.RawS3dExtract)
+            {
+                ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
+            }
             if (_useMultiProcess && _processCount > 0)
             {
                 List<Task> tasks = new List<Task>();
                 int i = 0;
 
-                // Each process is responsible for n number of files to work through determined by the process count here. 
+                // Each process is responsible for n number of files to work through determined by the process count here.
                 int chunkCount = Math.Max(1, (int)Math.Ceiling((double)(eqFiles.Count / _processCount)));
                 foreach (var chunk in eqFiles.GroupBy(s => i++ / chunkCount).Select(g => g.ToArray()).ToArray())
                 {
@@ -109,8 +114,9 @@ namespace LanternExtractor
                     ArchiveExtractor.Extract(file, "Exports/", _logger, _settings);
                 }
             }
+            ClientDataCopier.Copy(archiveName, "Exports/", _logger, _settings);
 
-            Console.WriteLine($"Extraction complete ({(DateTime.Now - start).TotalSeconds})s");
+            Console.WriteLine($"Extraction complete ({(DateTime.Now - start).TotalSeconds:.00}s)");
         }
     }
 }

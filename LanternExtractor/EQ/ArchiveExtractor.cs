@@ -151,7 +151,9 @@ namespace LanternExtractor.EQ
         public static void ExportSinglePlayerCharacterGltf(string pcEquipmentPath, string rootFolder, ILogger logger, Settings settings)
         {
             var pcEquipmentText = File.ReadAllText(pcEquipmentPath);
-            var pcEquipment = JsonSerializer.Deserialize<PlayerCharacterModel>(pcEquipmentText);
+            var deserializeOptions = new JsonSerializerOptions();
+            deserializeOptions.Converters.Add(new ColorJsonConverter());
+            var pcEquipment = JsonSerializer.Deserialize<PlayerCharacterModel>(pcEquipmentText, deserializeOptions);
             if (!pcEquipment.Validate(out var errorMessage))
             {
                 logger.LogError($"Cannot export player character - {errorMessage}");

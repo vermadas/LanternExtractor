@@ -306,21 +306,26 @@ namespace LanternExtractor.EQ.Wld.Exporters
             foreach (var materialGroup in mesh.MaterialGroups)
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
-                
+                Color? baseColor = null;
                 if (pcModel != null)
                 {
                     var equip = pcModel.GetEquipmentForImageName(material.GetFirstBitmapNameWithoutExtension());
-                    if (equip != null && equip.Material > 0)
+                    if (equip != null)
                     {
-                        var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, null)
-                            .Where(m => m != null)
-                            .OrderBy(m => m.Name)
-                            .ToList();
-
-                        if (alternateSkins.Any() && alternateSkins.Count >= equip.Material)
+                        if (equip.Material > 0)
                         {
-                            material = alternateSkins[equip.Material - 1];
+                            var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, null)
+                                .Where(m => m != null)
+                                .OrderBy(m => m.Name)
+                                .ToList();
+
+                            if (alternateSkins.Any() && alternateSkins.Count >= equip.Material)
+                            {
+                                material = alternateSkins[equip.Material - 1];
+                            }
                         }
+
+                        baseColor = equip.Color;
                     }
                 }
                 var materialName = GetMaterialName(material);
@@ -334,6 +339,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 if (!Materials.TryGetValue(materialName, out var gltfMaterial))
                 {
                     gltfMaterial = Materials[MaterialBlankName];
+                }
+
+                if (baseColor != null)
+                {
+                    gltfMaterial = gltfMaterial.WithBaseColor(baseColor.Value.ToVector4());
                 }
 
                 var primitive = gltfMesh.UsePrimitive(gltfMaterial);
@@ -1034,6 +1044,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public static Vector4 ToVector4(this WldColor color)
         {
             return new Vector4(color.R, color.G, color.B, color.A);
+        }
+
+        public static Vector4 ToVector4(this Color color)
+        {
+            return new Vector4(color.R/255.0f, color.G/255.0f, color.B/255.0f, color.A/255.0f);
         }
     }
 

@@ -7,7 +7,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LanternExtractor.EQ.Wld.Helpers;
+using DColor = System.Drawing.Color;
 using static LanternExtractor.EQ.Wld.Exporters.GltfWriter;
+using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace LanternExtractor.EQ.Wld.Exporters
 {
@@ -507,7 +510,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public class Equipment
         {
             public int Material { get; set; }
-            public Color Color { get; set; }
+            public DColor? Color { get; set; }
         }
 
         public Equipment GetEquipmentForImageName(string imageName)
@@ -580,5 +583,31 @@ namespace LanternExtractor.EQ.Wld.Exporters
             "chain",
             "magecap"
         };
+    }
+
+    public class ColorJsonConverter : JsonConverter<DColor?>
+    {
+        public override DColor? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var colorValue = reader.GetString();
+            if (string.IsNullOrWhiteSpace(colorValue))
+            {
+                return null;
+            }
+            if (colorValue.Substring(0, 1) == "#")
+            {
+                return System.Drawing.ColorTranslator.FromHtml(colorValue);
+            }
+            if (int.TryParse(colorValue, out var decimalColor))
+            {
+                return System.Drawing.ColorTranslator.FromHtml($"#{decimalColor:X6}");
+            }
+            return DColor.FromName(colorValue);
+        }
+
+        public override void Write(Utf8JsonWriter writer, DColor? value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value?.ToString() ?? "null");
+        }
     }
 }

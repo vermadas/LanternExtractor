@@ -204,7 +204,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
         public void AddFragmentData(Mesh mesh, SkeletonHierarchy skeleton, PlayerCharacterModel pcModel = null,
             int singularBoneIndex = -1, string parentSkeletonName = null, 
-            string parentSkeletonAttachBoneName = null, string meshNameOverride = null )
+            string parentSkeletonAttachBoneName = null, string meshNameOverride = null, bool usesMobPieces = false )
         {
             if (!_skeletons.ContainsKey(skeleton.ModelBase))
             {
@@ -217,7 +217,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 isSkinned: true, 
                 meshNameOverride: meshNameOverride, 
                 singularBoneIndex: singularBoneIndex,
-                pcModel: pcModel);
+                pcModel: pcModel,
+                usesMobPieces: usesMobPieces);
         }
 
         public void CopyMaterialList(GltfWriter gltfWriter)
@@ -257,9 +258,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
             string meshNameOverride = null,
             int singularBoneIndex = -1, 
             ObjectInstance objectInstance = null, 
-            int instanceIndex = 0, 
+            int instanceIndex = 0,
             bool isZoneMesh = false,
-            PlayerCharacterModel pcModel = null)
+            PlayerCharacterModel pcModel = null,
+            bool usesMobPieces = false)
         {
             var meshName = meshNameOverride ?? FragmentNameCleaner.CleanName(mesh);
             var transformMatrix = objectInstance == null ? Matrix4x4.Identity : CreateTransformMatrixForObjectInstance(objectInstance);
@@ -353,22 +355,22 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     if (!canExportVertexColors && !isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexTexture1, VertexEmpty>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, objectInstance);
+                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     else if (!canExportVertexColors && isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexTexture1, VertexJoints4>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, objectInstance);
+                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     else if (canExportVertexColors && !isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexColor1Texture1, VertexEmpty>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, objectInstance);
+                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     else //(canExportVertexColors && isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexColor1Texture1, VertexJoints4>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, objectInstance);
+                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     triangleGtlfVpToWldVi.ToList().ForEach(kv => gltfVertexPositionToWldVertexIndex[kv.Key] = kv.Value);
                 }
@@ -708,7 +710,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<VertexPositionNormal,int> AddTriangleToMesh<TvG, TvM, TvS>(
             IPrimitiveBuilder primitive, Mesh mesh,
             int polygonIndex, bool canExportVertexColors, bool isSkinned,
-            int singularBoneIndex = -1, ObjectInstance objectInstance = null)
+            int singularBoneIndex = -1, bool usesMobPieces = false, ObjectInstance objectInstance = null)
                 where TvG : struct, IVertexGeometry
                 where TvM : struct, IVertexMaterial
                 where TvS : struct, IVertexSkinning
@@ -728,12 +730,13 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 mesh.TextureUvCoordinates[vertexIndices.v1].ToVector2(true),
                 mesh.TextureUvCoordinates[vertexIndices.v2].ToVector2(true));
             (int v0, int v1, int v2) boneIndexes = (singularBoneIndex, singularBoneIndex, singularBoneIndex);
-            if (isSkinned && singularBoneIndex == -1)
+            if (isSkinned && (usesMobPieces || singularBoneIndex == -1))
             {
+                var boneOffset = singularBoneIndex == -1 ? 0 : singularBoneIndex;
                 boneIndexes = (
-                    GetBoneIndexForVertex(mesh, vertexIndices.v0),
-                    GetBoneIndexForVertex(mesh, vertexIndices.v1),
-                    GetBoneIndexForVertex(mesh, vertexIndices.v2));
+                    GetBoneIndexForVertex(mesh, vertexIndices.v0) + boneOffset,
+                    GetBoneIndexForVertex(mesh, vertexIndices.v1) + boneOffset,
+                    GetBoneIndexForVertex(mesh, vertexIndices.v2) + boneOffset);
             }
             (Vector4? v0, Vector4? v1, Vector4? v2) vertexColors = (null, null, null);
             if (canExportVertexColors)

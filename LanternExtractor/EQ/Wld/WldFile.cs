@@ -418,22 +418,33 @@ namespace LanternExtractor.EQ.Wld
         public ICollection<string> GetActorImageNames(string actorName)
         {
             var imageNames = new HashSet<string>();
-            if (!actorName.EndsWith("_ACTORDEF"))
-            {
-                actorName += "_ACTORDEF";
-            }
-            var actor = GetFragmentByNameIncludingInjectedWlds<Actor>(actorName);
-
-            if (actor == null)
-            {
-                return imageNames;
-            }
+            SkeletonHierarchy skeleton = null;
             var materialLists = new List<MaterialList>();
-            if (actor.MeshReference?.Mesh != null)
+            // HACK: IT145 (SK epic) actor not found
+            if (string.Equals(actorName, "it145", StringComparison.InvariantCultureIgnoreCase))
             {
-                materialLists.Add(actor.MeshReference.Mesh.MaterialList);
+                skeleton = GetFragmentByNameIncludingInjectedWlds<SkeletonHierarchy>("IT145_HS_DEF");
             }
-            var skeleton = actor.SkeletonReference?.SkeletonHierarchy;
+            else
+            {
+                if (!actorName.EndsWith("_ACTORDEF"))
+                {
+                    actorName += "_ACTORDEF";
+                }
+                var actor = GetFragmentByNameIncludingInjectedWlds<Actor>(actorName);
+
+                if (actor == null)
+                {
+                    return imageNames;
+                }
+
+                if (actor.MeshReference?.Mesh != null)
+                {
+                    materialLists.Add(actor.MeshReference.Mesh.MaterialList);
+                }
+                skeleton = actor.SkeletonReference?.SkeletonHierarchy;
+            }
+
             if (skeleton != null)
             {
                 foreach (var mesh in skeleton.Meshes ?? Enumerable.Empty<Mesh>())

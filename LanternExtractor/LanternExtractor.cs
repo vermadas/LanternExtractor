@@ -47,6 +47,9 @@ namespace LanternExtractor
 
             DateTime start = DateTime.Now;
 
+#if DEBUG
+            args = new string[] { "pc" };
+#endif
             if (args.Length != 1)
             {
                 Console.WriteLine("Usage: lantern.exe <filename/shortname/pc/all>");

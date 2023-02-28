@@ -94,7 +94,7 @@ namespace LanternExtractor.EQ.Wld
                     string boneName = string.Empty;
                     if (skeleton.IsValidSkeleton(FragmentNameCleaner.CleanName(track), out boneName))
                     {
-                        _logger.LogError($"Assigning {track.Name} to {skeleton.Name}");
+                        _logger.LogInfo($"Assigning {track.Name} to {skeleton.Name}");
                         track.IsProcessed = true;
                         skeleton.AddTrackDataEquipment(track, boneName.ToLower());
                     }

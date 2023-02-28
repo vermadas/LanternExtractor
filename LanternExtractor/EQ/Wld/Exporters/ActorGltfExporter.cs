@@ -77,10 +77,21 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var primaryActor = wldEqFile.GetFragmentByNameIncludingInjectedWlds<Actor>(primaryActorLookupName);
                     if (primaryActor == null)
                     {
-                        logger.LogError($"Player character model primary '{primaryActorLookupName}' not found!");
-                        return;
+                        if (MissingSkeletalActors.Contains(playerCharacterModel.Primary, StringComparer.InvariantCultureIgnoreCase))
+                        {
+                            primaryMeshOrSkeleton = wldEqFile.GetFragmentByNameIncludingInjectedWlds<SkeletonHierarchy>($"{playerCharacterModel.Primary}_HS_DEF");
+                            foreach (var bone in ((SkeletonHierarchy)primaryMeshOrSkeleton).Skeleton.Where(b => b.MeshReference?.Mesh != null))
+                            {
+                                materialLists.Add(bone.MeshReference.Mesh.MaterialList);
+                            }
+                        }
+                        else
+                        {
+                            logger.LogError($"Player character model primary '{primaryActorLookupName}' not found!");
+                            return;
+                        }
                     }
-                    if (primaryActor.ActorType == ActorType.Static)
+                    else if (primaryActor.ActorType == ActorType.Static)
                     {
                         primaryMeshOrSkeleton = primaryActor.MeshReference?.Mesh;
                         if (primaryMeshOrSkeleton != null)
@@ -93,9 +104,22 @@ namespace LanternExtractor.EQ.Wld.Exporters
                         primaryMeshOrSkeleton = primaryActor.SkeletonReference?.SkeletonHierarchy;
                         if (primaryMeshOrSkeleton != null)
                         {
-                            foreach (var bone in ((SkeletonHierarchy)primaryMeshOrSkeleton).Skeleton.Where(b => b.MeshReference?.Mesh != null))
+                            if (SkeletalActorsNotUsingBoneMeshes.Contains(playerCharacterModel.Primary, StringComparer.InvariantCultureIgnoreCase))
                             {
-                                materialLists.Add(bone.MeshReference.Mesh.MaterialList);
+                                foreach (var mesh in ((SkeletonHierarchy)primaryMeshOrSkeleton).Meshes)
+                                {
+                                    if (mesh?.MaterialList != null)
+                                    {
+                                        materialLists.Add(mesh.MaterialList);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                foreach (var bone in ((SkeletonHierarchy)primaryMeshOrSkeleton).Skeleton.Where(b => b.MeshReference?.Mesh != null))
+                                {
+                                    materialLists.Add(bone.MeshReference.Mesh.MaterialList);
+                                }
                             }
                         }
                     }
@@ -142,25 +166,51 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 else
                 {
                     var primarySkeleton = (SkeletonHierarchy)primaryMeshOrSkeleton;
-                    for (int i = 0; i < primarySkeleton.Skeleton.Count; i++)
+                    if (string.Equals(playerCharacterModel.Primary, "it156", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        var bone = primarySkeleton.Skeleton[i];
-                        var mesh = bone?.MeshReference?.Mesh;
-                        if (mesh != null)
+                        FixClericEpicPosScale(primarySkeleton);
+                    }
+                    if (SkeletalActorsNotUsingBoneMeshes.Contains(playerCharacterModel.Primary, StringComparer.InvariantCultureIgnoreCase))
+                    {
+                        foreach (var mesh in primarySkeleton.Meshes)
                         {
-                            MeshExportHelper.ShiftMeshVerticesMultipleSkeletons(
-                                mesh,
-                                new List<SkeletonHierarchy>() { primarySkeleton, skeleton },
-                                new List<bool>() { false, true },
-                                "pos",
-                                0,
-                                new List<int>() { i, primaryBoneIndex },
-                                true);
-
-                            gltfWriter.AddFragmentData(mesh, primarySkeleton, null, i + boneIndexOffset, skeleton.ModelBase, "r_point");
-                            gltfWriter.ApplyAnimationToSkeleton(primarySkeleton, "pos", false, true);
+                            if (mesh != null)
+                            {
+                                MeshExportHelper.ShiftMeshVerticesMultipleSkeletons(
+                                   mesh,
+                                   new List<SkeletonHierarchy>() { primarySkeleton, skeleton },
+                                   new List<bool>() { false, true },
+                                   "pos",
+                                   0,
+                                   new List<int>() { -1, primaryBoneIndex },
+                                   true);
+                                gltfWriter.AddFragmentData(mesh, primarySkeleton, null, boneIndexOffset, skeleton.ModelBase, "r_point", null, true);
+                            }
                         }
                     }
+                    else
+                    {
+                        for (int i = 0; i < primarySkeleton.Skeleton.Count; i++)
+                        {
+                            var bone = primarySkeleton.Skeleton[i];
+                            var mesh = bone?.MeshReference?.Mesh;
+                            if (mesh != null)
+                            {
+                                MeshExportHelper.ShiftMeshVerticesMultipleSkeletons(
+                                    mesh,
+                                    new List<SkeletonHierarchy>() { primarySkeleton, skeleton },
+                                    new List<bool>() { false, true },
+                                    "pos",
+                                    0,
+                                    new List<int>() { i, primaryBoneIndex },
+                                    true);
+
+                                gltfWriter.AddFragmentData(mesh, primarySkeleton, null, i + boneIndexOffset, skeleton.ModelBase, "r_point");
+                            }
+                        }
+                    }
+
+                    gltfWriter.ApplyAnimationToSkeleton(primarySkeleton, "pos", false, true);
                     boneIndexOffset += primarySkeleton.Skeleton.Count;
                 }
             }
@@ -168,7 +218,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 var attachBone = IsShield(playerCharacterModel.Secondary) ? "shield_point" : "l_point";
                 var secondaryBoneIndex = skeleton.BoneMappingClean.Where(kv => kv.Value == attachBone).Single().Key;
-                MeshExportHelper.ShiftMeshVertices((Mesh)secondaryMeshOrSkeleton, skeleton, true, "pos", 0, secondaryBoneIndex);
+                MeshExportHelper.ShiftMeshVertices((Mesh)secondaryMeshOrSkeleton, skeleton, true, "pos", 0, secondaryBoneIndex, true);
                 gltfWriter.AddFragmentData(
                     mesh: (Mesh)secondaryMeshOrSkeleton,
                     generationMode: ModelGenerationMode.Combine,
@@ -459,6 +509,21 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var numericItem = int.Parse(itemId.Substring(2));
             return numericItem >= 200 && numericItem < 300;
         }
+
+        private static void FixClericEpicPosScale(SkeletonHierarchy skeleton)
+        {
+            var posAnimation = skeleton.Animations["pos"];
+            var tracks = posAnimation.TracksCleaned;
+            var bone0 = skeleton.Skeleton[0];
+            var bone1 = skeleton.Skeleton[1];
+            var trackDef = tracks[bone0.CleanedName].TrackDefFragment;
+            trackDef.Frames[0].Scale = 1f;
+            trackDef = tracks[bone1.CleanedName].TrackDefFragment;
+            trackDef.Frames[0].Scale = 1f;
+        }
+
+        private static readonly ISet<string> SkeletalActorsNotUsingBoneMeshes = new HashSet<string>() { "IT4", "IT61", "IT153", "IT154", "IT157", "IT198" };
+        private static readonly ISet<string> MissingSkeletalActors = new HashSet<string>() { "IT145" };
     }
 
     public class AnimationKeyComparer : Comparer<string>

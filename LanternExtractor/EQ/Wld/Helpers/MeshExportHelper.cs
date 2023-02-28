@@ -99,34 +99,42 @@ namespace LanternExtractor.EQ.Wld.Helpers
             var modelMatrix = mat4.Translate(centerCorrection).Inverse * mat4.Identity;
             for (var i = 0; i < skeletons.Count; i++)
             {
-                if (singularBoneIndices[i] < 0) continue;
+                if (singularBoneIndices[i] < 0)
+                {
+                    foreach (var mobVertexPiece in mesh.MobPieces)
+                    {
+                        var boneIndex = mobVertexPiece.Key;
+                        var bone = skeletons[i].Skeleton[boneIndex].CleanedName;
 
-                var bone = skeletons[i].Skeleton[singularBoneIndices[i]].CleanedName;
-                if (!tracksList[i].ContainsKey(bone)) return originalVertices;
-                modelMatrix = skeletons[i].GetBoneMatrix(singularBoneIndices[i], tracksList[i], frame) * modelMatrix;
+                        if (!tracksList[i].ContainsKey(bone)) continue;
+                        var mobPieceMatrix = skeletons[i].GetBoneMatrix(boneIndex, tracksList[i], frame, centerCorrection);
+                        var mobPieceVerticesBeforeShift = ShiftMeshVerticesWithIndices(
+                            mobVertexPiece.Value.Start,
+                            mobVertexPiece.Value.Start + mobVertexPiece.Value.Count - 1,
+                            mesh, mobPieceMatrix);
+                        if (originalVertices.Count < (mesh.Vertices.Count - 1))
+                        {
+                            originalVertices.AddRange(mobPieceVerticesBeforeShift);
+                        }
+                    }
+                }
+                else
+                {
+                    var bone = skeletons[i].Skeleton[singularBoneIndices[i]].CleanedName;
+                    if (!tracksList[i].ContainsKey(bone)) continue;
+                    modelMatrix = skeletons[i].GetBoneMatrix(singularBoneIndices[i], tracksList[i], frame) * modelMatrix;
+                }
             }
             modelMatrix = mat4.Translate(centerCorrection) * modelMatrix;
-            originalVertices.AddRange(ShiftMeshVerticesWithIndices(
-                0, mesh.Vertices.Count - 1, mesh, modelMatrix));
+            var verticesBeforeShift = ShiftMeshVerticesWithIndices(
+                0, mesh.Vertices.Count - 1, mesh, modelMatrix);
+
+            if (originalVertices.Count < (mesh.Vertices.Count - 1))
+            {
+                originalVertices.AddRange(verticesBeforeShift);
+            }
 
             return originalVertices;
-
-            /*
-            foreach (var mobVertexPiece in mesh.MobPieces)
-            {
-                var boneIndex = mobVertexPiece.Key;
-                var bone = skeleton.Skeleton[boneIndex].CleanedName;
-
-                if (!tracks.ContainsKey(bone)) continue;
-
-                var modelMatrix = skeleton.GetBoneMatrix(boneIndex, tracks, frame, centerCorrection);
-
-                originalVertices.AddRange(ShiftMeshVerticesWithIndices(
-                    mobVertexPiece.Value.Start,
-                    mobVertexPiece.Value.Start + mobVertexPiece.Value.Count - 1,
-                    mesh, modelMatrix));
-            }
-            */
         }
 
         private static List<vec3> ShiftMeshVerticesWithIndices(int start, int end, Mesh mesh, mat4 boneMatrix)

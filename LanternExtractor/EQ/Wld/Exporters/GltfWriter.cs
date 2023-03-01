@@ -523,7 +523,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             WriteAssetToFile(fileName, false);
         }
 
-        public void WriteAssetToFile(string fileName, bool useExistingImages, string skeletonModelBase = null)
+        public void WriteAssetToFile(string fileName, bool useExistingImages, string skeletonModelBase = null, bool cleanupTexturesFolder = false)
         {
             AddCombinedMeshToScene(false, null, skeletonModelBase);
             var outputFilePath = FixFilePath(fileName);
@@ -533,23 +533,30 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 if (!useExistingImages)
                 {
                     model.SaveGLTF(outputFilePath);
-                    return;
                 }
-                var writeSettings = new SharpGLTF.Schema2.WriteSettings()
+                else
                 {
-                    JsonIndented = true,
-                    ImageWriteCallback = (context, uri, image) =>
+                    var writeSettings = new SharpGLTF.Schema2.WriteSettings()
                     {
-                        var imageSourcePath = image.SourcePath;
-                        return $"Textures/{Path.GetFileName(imageSourcePath)}";
-                    }
-                };
+                        JsonIndented = true,
+                        ImageWriteCallback = (context, uri, image) =>
+                        {
+                            var imageSourcePath = image.SourcePath;
+                            return $"Textures/{Path.GetFileName(imageSourcePath)}";
+                        }
+                    };
 
-                model.SaveGLTF(outputFilePath, writeSettings);
+                    model.SaveGLTF(outputFilePath, writeSettings);
+                }
             }
             else // Glb
             {
                 model.SaveGLB(outputFilePath);
+            }
+            if (cleanupTexturesFolder)
+            {
+                var outputFolder = Path.GetDirectoryName(outputFilePath);
+                Directory.Delete(Path.Combine(outputFolder, "Textures"), true);
             }
         }
         public override void ClearExportData()

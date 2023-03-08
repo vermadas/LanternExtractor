@@ -54,7 +54,8 @@ namespace LanternExtractor
         /// <summary>
         /// Sets the desired model export format
         /// </summary>
-        public ModelExportFormat ModelExportFormat { get; private set; }
+        /// Allowing public set so it can be overidden after parsing command-line arguments
+        public ModelExportFormat ModelExportFormat { get; set; }
 
         /// <summary>
         /// Sets the desired model export format

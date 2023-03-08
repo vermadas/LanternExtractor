@@ -62,6 +62,7 @@ namespace LanternExtractor
             var archiveName = args[0];
             if (archiveName.Equals("pc", StringComparison.InvariantCultureIgnoreCase))
             {
+                _settings.ModelExportFormat = ModelExportFormat.GlTF;
                 var playerCharacterEquipment = ReadPlayerCharacterModel("PcEquip.json");
 
                 if (IsDatabaseConnectionRequired(playerCharacterEquipment))

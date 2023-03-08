@@ -109,6 +109,11 @@ namespace LanternExtractor
         public bool ExportAdditionalAnimations { get; private set; }
 
         /// <summary>
+        /// Path to the server database
+        /// </summary>
+        public string ServerDbPath { get; private set; }
+
+        /// <summary>
         /// The verbosity of the logger
         /// </summary>
         public int LoggerVerbosity { get; private set; }
@@ -225,6 +230,11 @@ namespace LanternExtractor
             if (parsedSettings.ContainsKey("ClientDataToCopy"))
             {
                 ClientDataToCopy = parsedSettings["ClientDataToCopy"];
+            }
+
+            if (parsedSettings.ContainsKey("ServerDatabasePath"))
+            {
+                ServerDbPath = parsedSettings["ServerDatabasePath"];
             }
 
             if (parsedSettings.ContainsKey("LoggerVerbosity"))

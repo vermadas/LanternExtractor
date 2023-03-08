@@ -5,6 +5,10 @@
 # MacOS example: /Users/your.name/EQ/
 EverQuestDirectory = C:/Program Files (x86)/EverQuest/
 
+# Server Database Path (optional)
+# This can be found in your LanternEQ install (NOT the extractor) -
+ServerDatabasePath = C:/Lantern/LanternEQ_Data/StreamingAssets/Database/lantern_server.db
+
 # Extract the contents of the S3D archive as is?
 # If true, this will export all contents as they exist in the archives to their original formats.
 # If false, this will extract contents, process WLD files and convert images to .png

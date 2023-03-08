@@ -311,19 +311,17 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 Color? baseColor = null;
                 if (pcModel != null)
                 {
-                    var equip = pcModel.GetEquipmentForImageName(material.GetFirstBitmapNameWithoutExtension());
+                    var equip = pcModel.GetEquipmentForImageName(material.GetFirstBitmapNameWithoutExtension(), out var isChest);
                     if (equip != null)
                     {
                         if (equip.Material > 0)
                         {
-                            var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, null)
-                                .Where(m => m != null)
-                                .OrderBy(m => m.Name)
-                                .ToList();
+                            var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, _logger);
+                            var materialIndex = isChest && pcModel.IsChestRobe() ? equip.Material - 7 : equip.Material - 1;
 
-                            if (alternateSkins.Any() && alternateSkins.Count >= equip.Material)
+                            if (alternateSkins.Any() && alternateSkins.Count() > materialIndex && alternateSkins.ElementAt(materialIndex) != null)
                             {
-                                material = alternateSkins[equip.Material - 1];
+                                material = alternateSkins[materialIndex];
                             }
                         }
 
@@ -532,7 +530,22 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 if (!useExistingImages)
                 {
-                    model.SaveGLTF(outputFilePath);
+                    // Don't rename the image files
+                    var writeSettings = new SharpGLTF.Schema2.WriteSettings()
+                    {
+                        JsonIndented = true,
+                        ImageWriteCallback = (context, uri, image) =>
+                        {
+                            var imageSourcePath = image.SourcePath;
+                            var imageFileName = Path.GetFileName(imageSourcePath);
+                            // Save image to same path as the .gltf
+                            var newImagePath = Path.Combine(Path.GetDirectoryName(fileName), imageFileName);
+                            image.SaveToFile(newImagePath);
+
+                            return imageFileName;
+                        }
+                    };
+                    model.SaveGLTF(outputFilePath, writeSettings);
                 }
                 else
                 {

@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Entity.Infrastructure.Interception;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using LanternExtractor.EQ;
+using LanternExtractor.EQ.Wld.Exporters;
 using LanternExtractor.Infrastructure.Logger;
 
 namespace LanternExtractor
@@ -48,7 +51,7 @@ namespace LanternExtractor
             DateTime start = DateTime.Now;
 
 #if DEBUG
-            // args = new string[] { "pc" };
+ //           args = new string[] { "pc" };
 #endif
             if (args.Length != 1)
             {
@@ -59,15 +62,24 @@ namespace LanternExtractor
             var archiveName = args[0];
             if (archiveName.Equals("pc", StringComparison.InvariantCultureIgnoreCase))
             {
-                var pcEquipJsonFilePath = "PcEquip.json";
-                if (!File.Exists(pcEquipJsonFilePath))
+                var playerCharacterEquipment = ReadPlayerCharacterModel("PcEquip.json");
+
+                if (IsDatabaseConnectionRequired(playerCharacterEquipment))
                 {
-                    Console.WriteLine("PcEquip.json file not found!");
-                    return;
+                    GlobalReference.InitServerDatabaseConnector(_settings);
+                }
+                try
+                {
+                    ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
+                    PlayerCharacterGltfExporter.AddPcEquipmentClientDataFromDatabase(playerCharacterEquipment);
+                    PlayerCharacterGltfExporter.InitWldsForPlayerCharacterGltfExport(playerCharacterEquipment, "Exports/", _logger, _settings, out var mainWldEqFile);
+                    PlayerCharacterGltfExporter.ExportPlayerCharacter(playerCharacterEquipment, GlobalReference.CharacterWld, mainWldEqFile, _logger, _settings);
+                }
+                finally
+                {
+                    GlobalReference.ServerDatabaseConnector?.Dispose();
                 }
 
-                ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
-                ArchiveExtractor.ExportSinglePlayerCharacterGltf(pcEquipJsonFilePath, "Exports/", _logger, _settings);
                 Console.WriteLine($"Single player character export complete ({(DateTime.Now - start).TotalSeconds})s");
 
                 return;
@@ -115,6 +127,38 @@ namespace LanternExtractor
             ClientDataCopier.Copy(archiveName, "Exports/", _logger, _settings);
 
             Console.WriteLine($"Extraction complete ({(DateTime.Now - start).TotalSeconds:.00}s)");
+        }
+
+        private static PlayerCharacterModel ReadPlayerCharacterModel(string pcEquipJsonFilePath)
+        {
+            if (!File.Exists(pcEquipJsonFilePath))
+            {
+                Console.WriteLine("PcEquip.json file not found!");
+                return null;
+            }
+
+            var pcEquipmentText = File.ReadAllText(pcEquipJsonFilePath);
+            var deserializeOptions = new JsonSerializerOptions();
+            deserializeOptions.Converters.Add(new ColorJsonConverter());
+            var pcEquipment = JsonSerializer.Deserialize<PlayerCharacterModel>(pcEquipmentText, deserializeOptions);
+            if (!pcEquipment.Validate(out var errorMessage))
+            {
+                Console.WriteLine($"Cannot export player character - {errorMessage}");
+                return null;
+            }
+            return pcEquipment;
+        }
+        private static bool IsDatabaseConnectionRequired(PlayerCharacterModel pcModel)
+        {
+            return (string.IsNullOrEmpty(pcModel.Primary_ID) && !string.IsNullOrEmpty(pcModel.Primary_Name)) ||
+                (string.IsNullOrEmpty(pcModel.Secondary_ID) && !string.IsNullOrEmpty(pcModel.Secondary_Name)) ||
+                !string.IsNullOrEmpty(pcModel.Head.Name) ||
+                !string.IsNullOrEmpty(pcModel.Wrist.Name) ||
+                !string.IsNullOrEmpty(pcModel.Arms.Name) ||
+                !string.IsNullOrEmpty(pcModel.Hands.Name) ||
+                !string.IsNullOrEmpty(pcModel.Chest.Name) ||
+                !string.IsNullOrEmpty(pcModel.Legs.Name) ||
+                !string.IsNullOrEmpty(pcModel.Feet.Name);
         }
     }
 }

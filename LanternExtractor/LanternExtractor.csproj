@@ -88,6 +88,7 @@
     <Compile Include="EQ\Wld\Exporters\ActorWriter.cs" />
     <Compile Include="EQ\Wld\Exporters\ActorObjExporter.cs" />
     <Compile Include="EQ\Wld\Exporters\ParticleSystemWriter.cs" />
+    <Compile Include="EQ\Wld\Exporters\PlayerCharacterGltfExporter.cs" />
     <Compile Include="EQ\Wld\Exporters\SkeletonHierarchyWriter.cs" />
     <Compile Include="EQ\Wld\Exporters\MeshIntermediateAssetWriter.cs" />
     <Compile Include="EQ\Wld\Exporters\MeshIntermediateMaterialsExporter.cs" />
@@ -160,6 +161,7 @@
     <Compile Include="Infrastructure\Logger\LogVerbosity.cs" />
     <Compile Include="Infrastructure\Logger\TextFileLogger.cs" />
     <Compile Include="Infrastructure\SoundWriter.cs" />
+    <Compile Include="Infrastructure\SqliteDatabaseConnector.cs" />
     <Compile Include="Infrastructure\TextParser.cs" />
     <Compile Include="LanternExtractor.cs" />
     <Compile Include="LanternStrings.cs" />
@@ -203,6 +205,9 @@
     </PackageReference>
     <PackageReference Include="SharpGLTF.Toolkit">
       <Version>1.0.0-alpha0028</Version>
+    </PackageReference>
+    <PackageReference Include="System.Data.SQLite">
+      <Version>1.0.117</Version>
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

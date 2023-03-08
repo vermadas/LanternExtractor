@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -109,12 +110,12 @@ namespace LanternExtractor.EQ
 
         public static void InitializeSharedCharacterWld(string rootFolder, ILogger logger, Settings settings)
         {
-            var globalChrFileIndices = new List<string>() { "2", "3", "4", "" };
+            var globalChrFileIndices = new List<string>() { "2_chr", "3_chr", "4_chr", "17_amr", "18_amr", "19_amr", "20_amr", "21_amr", "22_amr", "23_amr", "_chr" };
             var injectibleGlobalChrWlds = new List<WldFile>();
 
             foreach (var fileIndex in globalChrFileIndices)
             {
-                var globalChrName = $"global{fileIndex}_chr";
+                var globalChrName = $"global{fileIndex}";
                 var globalChrS3d = Path.Combine(settings.EverQuestDirectory, $"{globalChrName}.s3d");
 
                 var s3dArchive = new PfsArchive(globalChrS3d, logger);
@@ -133,7 +134,7 @@ namespace LanternExtractor.EQ
                     return;
                 }
 
-                if (fileIndex != "")
+                if (fileIndex != "_chr")
                 {
                     var injectibleChrWld = new WldFileCharacters(wldFileInArchive, globalChrName, WldType.Characters, logger, settings);
                     injectibleChrWld.Initialize(rootFolder, false);
@@ -146,69 +147,6 @@ namespace LanternExtractor.EQ
                     GlobalReference.InitCharacterWld(s3dArchive, wldFileInArchive, rootFolder, "global", WldType.Characters, logger, settings, injectibleGlobalChrWlds);
                 }
             }
-        }
-		
-        public static void ExportSinglePlayerCharacterGltf(string pcEquipmentPath, string rootFolder, ILogger logger, Settings settings)
-        {
-            var pcEquipmentText = File.ReadAllText(pcEquipmentPath);
-            var deserializeOptions = new JsonSerializerOptions();
-            deserializeOptions.Converters.Add(new ColorJsonConverter());
-            var pcEquipment = JsonSerializer.Deserialize<PlayerCharacterModel>(pcEquipmentText, deserializeOptions);
-            if (!pcEquipment.Validate(out var errorMessage))
-            {
-                logger.LogError($"Cannot export player character - {errorMessage}");
-                return;
-            }
-
-            var actorName = pcEquipment.RaceGender;
-            var includeList = GlobalReference.CharacterWld.GetActorImageNames(actorName).ToList();
-            var exportFolder = Path.Combine(rootFolder, actorName, "Textures");
-            WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList, true);
-            WldFileEquipment mainWldEqFile = null;
-            WldFileEquipment injectedWldEqFile = null;
-            includeList.Clear();
-            if (!string.IsNullOrEmpty(pcEquipment.Primary) || !string.IsNullOrEmpty(pcEquipment.Secondary))
-            {
-                var eqFiles = new string[] { "gequip2", "gequip" };
-                for (int i = 0; i < 2; i++)
-                {
-                    var eqFile = eqFiles[i];
-                    var eqFilePath = Path.Combine(settings.EverQuestDirectory, $"{eqFile}.s3d");
-                    var eqS3dArchive = new PfsArchive(eqFilePath, logger);
-                    if (!eqS3dArchive.Initialize())
-                    {
-                        logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + eqFilePath);
-                        return;
-                    }
-                    var eqWldFileName = eqFile + LanternStrings.WldFormatExtension;
-                    var eqWldFileInArchive = eqS3dArchive.GetFile(eqWldFileName);
-                    WldFileEquipment wldEqFile;
-                    if (i == 0)
-                    {
-                        wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings);
-                        injectedWldEqFile = wldEqFile;
-                    }
-                    else
-                    {
-                        wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings, new List<WldFile>() { injectedWldEqFile });
-                        mainWldEqFile = wldEqFile;
-                    }
-                    wldEqFile.Initialize(rootFolder, false);
-                    eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
-                    wldEqFile.S3dArchiveReference = eqS3dArchive;
-                }
-                if (pcEquipment.Primary != null)
-                {
-                    includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Primary));
-                }
-                if (pcEquipment.Secondary != null)
-                {
-                    includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Secondary));
-                }
-                WriteWldTextures(mainWldEqFile, exportFolder, logger, includeList, true);
-            }
-
-            ActorGltfExporter.ExportPlayerCharacter(GlobalReference.CharacterWld, mainWldEqFile, settings, logger, pcEquipment);
         }
 
         private static void ExtractArchiveZone(string path, string rootFolder, ILogger logger, Settings settings,

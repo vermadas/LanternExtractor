@@ -117,7 +117,7 @@ namespace LanternExtractor.EQ.Wld
                     m => m.Name.StartsWith("clk", StringComparison.InvariantCultureIgnoreCase))
                     .Any();
 
-                foreach (var material in GetFragmentsOfType<Material>())
+                foreach (var material in GetFragmentsOfTypeIncludingInjectedWlds<Material>())
                 {
                     string materialName = FragmentNameCleaner.CleanName(material);
                     var materialIsRobe = materialName.StartsWith("clk", StringComparison.InvariantCultureIgnoreCase);

@@ -180,8 +180,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<string, IMeshBuilder<MaterialBuilder>> _sharedMeshes;
         private IDictionary<string, List<NodeBuilder>> _skeletons;
         private IDictionary<string, List<(string, string)>> _skeletonChildrenAttachBones;
+        private PlayerCharacterModel _playerCharacterModel;
 
-        public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger)
+        public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, PlayerCharacterModel playerCharacterModel = null)
         {
             _exportVertexColors = exportVertexColors;
             _exportFormat = exportFormat;
@@ -192,6 +193,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             _skeletons = new Dictionary<string, List<NodeBuilder>>();
             _skeletonChildrenAttachBones = new Dictionary<string, List<(string, string)>>();
             _sharedMeshes = new Dictionary<string, IMeshBuilder<MaterialBuilder>>();
+            _playerCharacterModel = playerCharacterModel;
             _scene = new SceneBuilder();
         }
 
@@ -202,8 +204,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 generationMode:ModelGenerationMode.Separate );
         }
 
-        public void AddFragmentData(Mesh mesh, SkeletonHierarchy skeleton, PlayerCharacterModel pcModel = null,
-            int singularBoneIndex = -1, string parentSkeletonName = null, 
+        public void AddFragmentData(Mesh mesh, SkeletonHierarchy skeleton, int singularBoneIndex = -1, string parentSkeletonName = null, 
             string parentSkeletonAttachBoneName = null, string meshNameOverride = null, bool usesMobPieces = false )
         {
             if (!_skeletons.ContainsKey(skeleton.ModelBase))
@@ -217,7 +218,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 isSkinned: true, 
                 meshNameOverride: meshNameOverride, 
                 singularBoneIndex: singularBoneIndex,
-                pcModel: pcModel,
                 usesMobPieces: usesMobPieces);
         }
 
@@ -260,7 +260,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
             ObjectInstance objectInstance = null, 
             int instanceIndex = 0,
             bool isZoneMesh = false,
-            PlayerCharacterModel pcModel = null,
             bool usesMobPieces = false)
         {
             var meshName = meshNameOverride ?? FragmentNameCleaner.CleanName(mesh);
@@ -309,15 +308,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
                 Color? baseColor = null;
-                if (pcModel != null)
+                if (_playerCharacterModel != null)
                 {
-                    var equip = pcModel.GetEquipmentForImageName(material.GetFirstBitmapNameWithoutExtension(), out var isChest);
+                    var equip = _playerCharacterModel.GetEquipmentForImageName(material.GetFirstBitmapNameWithoutExtension(), out var isChest);
                     if (equip != null)
                     {
                         if (equip.Material > 0)
                         {
                             var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, _logger);
-                            var materialIndex = isChest && pcModel.IsChestRobe() ? equip.Material - 7 : equip.Material - 1;
+                            var materialIndex = isChest && _playerCharacterModel.IsChestRobe() ? equip.Material - 7 : equip.Material - 1;
 
                             if (alternateSkins.Any() && alternateSkins.Count() > materialIndex && alternateSkins.ElementAt(materialIndex) != null)
                             {
@@ -330,7 +329,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
                 var materialName = GetMaterialName(material);
 
-                if (_meshMaterialsToSkip.Contains(materialName))
+                if (ShouldSkipMeshGenerationForMaterial(materialName))
                 {
                     polygonIndex += materialGroup.PolygonCount;
                     continue;
@@ -699,6 +698,34 @@ namespace LanternExtractor.EQ.Wld.Exporters
             return $"{MaterialList.GetMaterialPrefix(eqMaterial.ShaderType)}{eqMaterial.GetFirstBitmapNameWithoutExtension()}";
         }
 
+        private bool ShouldSkipMeshGenerationForMaterial(string materialName)
+        {
+            if (_meshMaterialsToSkip.Contains(materialName)) return true;
+
+            if (_playerCharacterModel == null || !_playerCharacterModel.RequiresMeshModificationsForVeliousHelm()) return false;
+
+            var raceGendersWithHelmMaterialName = new HashSet<string>() { "DAF", "ELF", "ERF", "HUF" };
+            if (raceGendersWithHelmMaterialName.Contains(_playerCharacterModel.RaceGender) && materialName.Contains("helm"))
+            {
+                return true;
+            }
+            if (_playerCharacterModel.RaceGender == "BAF" && materialName.Contains("bamhe") &&
+                (materialName.EndsWith("03") || materialName.EndsWith("05")))
+            {
+                return true;
+            }
+            if (_playerCharacterModel.RaceGender == "DAF" && materialName.Contains("dafhe00") && materialName.EndsWith("2"))
+            {
+                return true;
+            }
+            if (_playerCharacterModel.RaceGender == "ERM" && 
+                (materialName.Contains("clkerm") || (materialName.Contains("clk") && materialName.EndsWith("06"))))
+            {
+                return true;
+            }
+            return false;
+        }
+
         private MaterialBuilder GetBlankMaterial(string name = null)
         {
             var materialName = name ?? MaterialBlankName;
@@ -1026,6 +1053,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                                 newImage.SetPixel(i, j, Color.FromArgb(128, pixelColor));
                                 break;
                             case ShaderType.Transparent75:
+                            case ShaderType.TransparentAdditive:
                                 newImage.SetPixel(i, j, Color.FromArgb(192, pixelColor));
                                 break;
                             default:

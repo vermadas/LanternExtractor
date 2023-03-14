@@ -232,7 +232,7 @@ namespace LanternExtractor.EQ
         private static void ExtractArchiveCharacters(string path, string rootFolder, ILogger logger, Settings settings,
             string archiveName, PfsFile wldFileInArchive, string shortName, PfsArchive s3dArchive)
         {
-            WldFileCharacters wldFileToInject = null;
+            var wldFilesToInject = new List<WldFile>();
 
             // global3_chr contains just animations
             if (archiveName.StartsWith("global3_chr"))
@@ -247,13 +247,14 @@ namespace LanternExtractor.EQ
 
                 PfsFile wldFileInArchive2 = s3dArchive2.GetFile("global_chr.wld");
 
-                wldFileToInject = new WldFileCharacters(wldFileInArchive2, "global_chr", WldType.Characters,
+                var wldFileToInject = new WldFileCharacters(wldFileInArchive2, "global_chr", WldType.Characters,
                     logger, settings);
                 wldFileToInject.Initialize(rootFolder, false);
+                wldFilesToInject.Add(wldFileToInject);
             }
 
             var wldFile = new WldFileCharacters(wldFileInArchive, shortName, WldType.Characters,
-                logger, settings, new List<WldFile>() { wldFileToInject });
+                logger, settings, wldFilesToInject );
 
             string exportPath = rootFolder + (settings.ExportCharactersToSingleFolder &&
                                               settings.ModelExportFormat == ModelExportFormat.Intermediate

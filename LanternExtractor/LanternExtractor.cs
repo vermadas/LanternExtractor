@@ -51,7 +51,7 @@ namespace LanternExtractor
             DateTime start = DateTime.Now;
 
 #if DEBUG
- //           args = new string[] { "pc" };
+//            args = new string[] { "pc" };
 #endif
             if (args.Length != 1)
             {

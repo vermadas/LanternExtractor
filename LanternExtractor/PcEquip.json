@@ -9,7 +9,8 @@
       {
           "Name": "",
           "Material": 0,
-          "Color": null
+          "Color": null,
+          "Velious": false
       },
       "Wrist":
       {

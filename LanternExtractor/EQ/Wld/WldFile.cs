@@ -245,7 +245,7 @@ namespace LanternExtractor.EQ.Wld
 
         public List<T> GetFragmentsOfTypeIncludingInjectedWlds<T>() where T : WldFragment
         {
-            if (_wldFilesToInject == null)
+            if (_wldFilesToInject == null || !_wldFilesToInject.Any())
             {
                 return GetFragmentsOfType<T>();
             }

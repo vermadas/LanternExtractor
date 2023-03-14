@@ -258,7 +258,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
                         wldFile.WldType == WldType.Characters, "pos", 0, i);
 
-                    gltfWriter.AddFragmentData(mesh, skeleton, null, i);
+                    gltfWriter.AddFragmentData(mesh, skeleton, i);
                 }
             }
 

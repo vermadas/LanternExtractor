@@ -50,9 +50,14 @@ ExportSoundsToSingleFolder = true
 # (OBJ, glTF)
 ExportAllAnimationFrames = false
 
-# If true, will export zone files in obj format with their associated objects placed within the zone
+# If true, will export zone files with their associated objects placed within the zone
 # (OBJ, glTF)
 ExportZoneWithObjects = false
+
+# If true, will export zone files with their associated "door" objects placed within the zone
+# Requires database connection
+# (glTF)
+ExportZoneWithDoors = false
 
 # Export vertex colors
 # Default behavior of glTF renderers is to mix the vertex color with the base color,

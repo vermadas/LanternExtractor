@@ -51,7 +51,7 @@ namespace LanternExtractor
             DateTime start = DateTime.Now;
 
 #if DEBUG
-//            args = new string[] { "pc" };
+//            args = new string[] { "rathemtn" };
 #endif
             if (args.Length != 1)
             {
@@ -86,6 +86,11 @@ namespace LanternExtractor
                 return;
             }
 
+            if (IsDatabaseConnectionRequired())
+            {
+                GlobalReference.InitServerDatabaseConnector(_settings);
+            }
+
             List<string> eqFiles = EqFileHelper.GetValidEqFilePaths(_settings.EverQuestDirectory, archiveName);
             eqFiles.Sort();
 
@@ -100,31 +105,39 @@ namespace LanternExtractor
             {
                 ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
             }
-            if (_useMultiProcess && _processCount > 0)
+            try
             {
-                List<Task> tasks = new List<Task>();
-                int i = 0;
+                if (_useMultiProcess && _processCount > 0)
+                {
+                    List<Task> tasks = new List<Task>();
+                    int i = 0;
 
-                // Each process is responsible for n number of files to work through determined by the process count here.
-                int chunkCount = Math.Max(1, (int)Math.Ceiling((double)(eqFiles.Count / _processCount)));
-                foreach (var chunk in eqFiles.GroupBy(s => i++ / chunkCount).Select(g => g.ToArray()).ToArray())
-                {
-                    Task task = Task.Factory.StartNew(() =>
+                    // Each process is responsible for n number of files to work through determined by the process count here.
+                    int chunkCount = Math.Max(1, (int)Math.Ceiling((double)(eqFiles.Count / _processCount)));
+                    foreach (var chunk in eqFiles.GroupBy(s => i++ / chunkCount).Select(g => g.ToArray()).ToArray())
                     {
-                        var processJob = Process.Start("LanternExtractor.exe", string.Join(" ", chunk.Select(c => $"\"{c}\"").ToArray().Prepend("PROCESS_JOB")));
-                        processJob.WaitForExit();
-                    });
-                    tasks.Add(task);
+                        Task task = Task.Factory.StartNew(() =>
+                        {
+                            var processJob = Process.Start("LanternExtractor.exe", string.Join(" ", chunk.Select(c => $"\"{c}\"").ToArray().Prepend("PROCESS_JOB")));
+                            processJob.WaitForExit();
+                        });
+                        tasks.Add(task);
+                    }
+                    Task.WaitAll(tasks.ToArray());
                 }
-                Task.WaitAll(tasks.ToArray());
-            }
-            else
-            {
-                foreach (var file in eqFiles)
+                else
                 {
-                    ArchiveExtractor.Extract(file, "Exports/", _logger, _settings);
+                    foreach (var file in eqFiles)
+                    {
+                        ArchiveExtractor.Extract(file, "Exports/", _logger, _settings);
+                    }
                 }
             }
+            finally
+            {
+                GlobalReference.ServerDatabaseConnector?.Dispose();
+            }
+
             ClientDataCopier.Copy(archiveName, "Exports/", _logger, _settings);
 
             Console.WriteLine($"Extraction complete ({(DateTime.Now - start).TotalSeconds:.00}s)");
@@ -160,6 +173,11 @@ namespace LanternExtractor
                 !string.IsNullOrEmpty(pcModel.Chest.Name) ||
                 !string.IsNullOrEmpty(pcModel.Legs.Name) ||
                 !string.IsNullOrEmpty(pcModel.Feet.Name);
+        }
+
+        private static bool IsDatabaseConnectionRequired()
+        {
+            return _settings.ExportZoneWithDoors;
         }
     }
 }

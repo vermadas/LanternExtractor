@@ -75,27 +75,31 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private static void ExportZone(WldFileZone wldFileZone, Settings settings, ILogger logger )
         {
             var zoneMeshes = wldFileZone.GetFragmentsOfType<Mesh>();
+
+            if (!zoneMeshes.Any()) return;
+
             var actors = new List<Actor>();
             var materialLists = wldFileZone.GetFragmentsOfType<MaterialList>();
-            var objects = new List<ObjectInstance>();
+            var objects = new List<ObjInstance>();
             var shortName = wldFileZone.ShortName;
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
 
-            if (settings.ExportZoneWithObjects)
+            if (settings.ExportZoneWithObjects || settings.ExportZoneWithDoors)
             {
                 var rootFolder = wldFileZone.RootFolder;
 
                 // Get object instances within this zone file to map up and instantiate later
                 var zoneObjectsFileInArchive =
                     wldFileZone.S3dArchiveReference.GetFile("objects" + LanternStrings.WldFormatExtension);
-                if (zoneObjectsFileInArchive != null)
+                if (zoneObjectsFileInArchive == null)
                 {
-                    var zoneObjectsWldFile = new WldFileZoneObjects(zoneObjectsFileInArchive, shortName,
-                        WldType.ZoneObjects, logger, settings, wldFileZone.WldFileToInject);
-                    zoneObjectsWldFile.Initialize(rootFolder, false);
-                    objects.AddRange(zoneObjectsWldFile.GetFragmentsOfType<ObjectInstance>()
-                        .Where(o => !o.ObjectName.Contains("door")));
+                    logger.LogError($"Cannot find S3dArchive for Zone {shortName} objects!");
+                    return;
                 }
+
+                var zoneObjectsWldFile = new WldFileZoneObjects(zoneObjectsFileInArchive, shortName,
+                    WldType.ZoneObjects, logger, settings, wldFileZone.WldFileToInject);
+                zoneObjectsWldFile.Initialize(rootFolder, false);
 
                 // Find associated _obj archive e.g. qeytoqrg_obj.s3d, open it and add meshes and materials to our list
                 var objPath = wldFileZone.BasePath.Replace(".s3d", "_obj.s3d");
@@ -113,11 +117,16 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     actors.AddRange(objWldFile.GetFragmentsOfType<Actor>());
                     materialLists.AddRange(objWldFile.GetFragmentsOfType<MaterialList>());
                 }
-            }
 
-            if (!zoneMeshes.Any())
-            {
-                return;
+                if (settings.ExportZoneWithObjects)
+                {
+                    objects.AddRange(zoneObjectsWldFile.GetFragmentsOfType<ObjectInstance>().Select(o => new ObjInstance(o)));
+                }
+                if (settings.ExportZoneWithDoors)
+                {
+                    var doors = GlobalReference.ServerDatabaseConnector.QueryDoorsInZoneFromDatabase(shortName);
+                    objects.AddRange(doors.Select(d => new ObjInstance(d)));
+                }
             }
 
             var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
@@ -143,11 +152,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     if (objMesh == null) continue;
 
                     var instances = objects.FindAll(o =>
-                        objMesh.Name.StartsWith(o.ObjectName, StringComparison.InvariantCultureIgnoreCase));
+                        objMesh.Name.Split('_')[0].Equals(o.Name, StringComparison.InvariantCultureIgnoreCase));
                     var instanceIndex = 0;
                     foreach (var instance in instances)
                     {
-                        if (instance.Position.z < short.MinValue) continue;
+                        if (instance.Position.Z < short.MinValue) continue;
                         // TODO: this could be more nuanced, I think this still exports trees below the zone floor
 
                         gltfWriter.AddFragmentData(
@@ -164,14 +173,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     if (skeleton == null) continue;
 
                     var instances = objects.FindAll(o =>
-                        skeleton.Name.StartsWith(o.ObjectName, StringComparison.InvariantCultureIgnoreCase));
+                        skeleton.Name.Split('_')[0].Equals(o.Name, StringComparison.InvariantCultureIgnoreCase));
                     var instanceIndex = 0;
                     var combinedMeshName = FragmentNameCleaner.CleanName(skeleton);
                     var addedMeshOnce = false;
 
                     foreach (var instance in instances)
                     {
-                        if (instance.Position.z < short.MinValue) continue;
+                        if (instance.Position.Z < short.MinValue) continue;
 
                         if (!addedMeshOnce ||
                             (settings.ExportGltfVertexColors

@@ -17,6 +17,7 @@ using WldColor = LanternExtractor.EQ.Wld.DataTypes.Color;
 using Animation = LanternExtractor.EQ.Wld.DataTypes.Animation;
 using System.Drawing.Imaging;
 using LanternExtractor.Infrastructure.Logger;
+using LanternExtractor.Infrastructure;
 
 namespace LanternExtractor.EQ.Wld.Exporters
 {
@@ -257,7 +258,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             bool isSkinned = false, 
             string meshNameOverride = null,
             int singularBoneIndex = -1, 
-            ObjectInstance objectInstance = null, 
+            ObjInstance objectInstance = null, 
             int instanceIndex = 0,
             bool isZoneMesh = false,
             bool usesMobPieces = false)
@@ -463,7 +464,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             bool isZoneMesh = false, 
             string meshName = null, 
             string skeletonModelBase = null, 
-            ObjectInstance objectInstance = null)
+            ObjInstance objectInstance = null)
         {
             IMeshBuilder<MaterialBuilder> combinedMesh;
             if (meshName != null && _sharedMeshes.TryGetValue(meshName, out var existingMesh))
@@ -651,16 +652,12 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             switch (eqMaterial.ShaderType)
             {
-                case ShaderType.Transparent25:
-                    gltfMaterial.WithAlpha(AlphaMode.MASK, 0.25f);
-                    break;
-                case ShaderType.Transparent50:
                 case ShaderType.TransparentMasked:
                     gltfMaterial.WithAlpha(AlphaMode.MASK, 0.5f);
                     break;
+                case ShaderType.Transparent25:
+                case ShaderType.Transparent50:
                 case ShaderType.Transparent75:
-                    gltfMaterial.WithAlpha(AlphaMode.MASK, 0.75f);
-                    break;
                 case ShaderType.TransparentAdditive:
                 case ShaderType.TransparentAdditiveUnlit:
                 case ShaderType.TransparentSkydome:
@@ -681,15 +678,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             Materials.Add(materialName, gltfMaterial);
         }
-        private Matrix4x4 CreateTransformMatrixForObjectInstance(ObjectInstance instance)
+        private Matrix4x4 CreateTransformMatrixForObjectInstance(ObjInstance instance)
         {
-            var transformMatrix = Matrix4x4.CreateScale(instance.Scale.ToVector3())
+            var transformMatrix = Matrix4x4.CreateScale(instance.Scale)
                 * Matrix4x4.CreateFromYawPitchRoll(
-                    (float)(instance.Rotation.z * Math.PI)/180,
-                    (float)(instance.Rotation.x * Math.PI)/180,
-                    (float)(instance.Rotation.y * Math.PI)/180
+                    (float)(instance.Rotation.Z * Math.PI)/180,
+                    (float)(instance.Rotation.X * Math.PI)/180,
+                    (float)(instance.Rotation.Y * Math.PI)/180
                 )
-                * Matrix4x4.CreateTranslation(instance.Position.ToVector3(true));
+                * Matrix4x4.CreateTranslation(instance.Position);
             return transformMatrix;
         }
 
@@ -757,7 +754,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<VertexPositionNormal,int> AddTriangleToMesh<TvG, TvM, TvS>(
             IPrimitiveBuilder primitive, Mesh mesh,
             int polygonIndex, bool canExportVertexColors, bool isSkinned,
-            int singularBoneIndex = -1, bool usesMobPieces = false, ObjectInstance objectInstance = null)
+            int singularBoneIndex = -1, bool usesMobPieces = false, ObjInstance objectInstance = null)
                 where TvG : struct, IVertexGeometry
                 where TvM : struct, IVertexMaterial
                 where TvS : struct, IVertexSkinning
@@ -848,7 +845,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         }
 
         private (Vector4 v0, Vector4 v1, Vector4 v2) GetVertexColorVectors(Mesh mesh, 
-            (int v0, int v1, int v2) vertexIndices, ObjectInstance objectInstance = null)
+            (int v0, int v1, int v2) vertexIndices, ObjInstance objectInstance = null)
         {
             var objInstanceColors = objectInstance?.Colors?.Colors ?? new List<WldColor>();
             var meshColors = mesh?.Colors ?? new List<WldColor>();
@@ -1020,6 +1017,46 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             var fixedExtension = _exportFormat == GltfExportFormat.GlTF ? ".gltf" : ".glb";
             return Path.ChangeExtension(filePath, fixedExtension);
+        }
+    }
+
+    public class ObjInstance
+    {
+        public string Name { get; private set; }
+        public ObjType Type { get; private set; }
+        public Vector3 Position { get; private set; }
+        public Vector3 Rotation { get; private set; }
+        public Vector3 Scale { get; private set; }
+        public VertexColors Colors { get; private set; }
+
+        public ObjInstance(ObjectInstance objectInstanceFragment)
+        {
+            Name = objectInstanceFragment.ObjectName;
+            Position = objectInstanceFragment.Position.ToVector3(true);
+            Rotation = objectInstanceFragment.Rotation.ToVector3();
+            Scale = objectInstanceFragment.Scale.ToVector3();
+            Colors = objectInstanceFragment.Colors;
+            Type = ObjType.ZoneInstance;
+        }
+
+        public ObjInstance(Door door)
+        {
+            Name = door.Name;
+            Position = new Vector3(
+                door.Position.Y,
+                door.Position.Z,
+                door.Position.X
+            );
+            Rotation = new Vector3(0f, door.Incline * 360f / 512f, -(float)(door.Heading * 360d / 512d));
+            Scale = new Vector3(1f);
+
+            Type = ObjType.Door;
+        }
+
+        public enum ObjType
+        {
+            ZoneInstance = 0,
+            Door = 1
         }
     }
 

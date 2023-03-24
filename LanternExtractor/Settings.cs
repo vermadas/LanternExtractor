@@ -78,9 +78,14 @@ namespace LanternExtractor
         public bool ExportAllAnimationFrames { get; private set; }
 
         /// <summary>
-        /// Exports all OBJ frames for all animations
+        /// Exports zone with object instances placed within
         /// </summary>
         public bool ExportZoneWithObjects { get; private set; }
+
+        /// <summary>
+        /// Exports zone with door instances placed within
+        /// </summary>
+        public bool ExportZoneWithDoors { get; private set; }
 
         /// <summary>
         /// Export vertex colors with glTF model. Default behavior of glTF renderers
@@ -185,6 +190,11 @@ namespace LanternExtractor
             if (parsedSettings.ContainsKey("ExportZoneWithObjects"))
             {
                 ExportZoneWithObjects = Convert.ToBoolean(parsedSettings["ExportZoneWithObjects"]);
+            }
+
+            if (parsedSettings.ContainsKey("ExportZoneWithDoors"))
+            {
+                ExportZoneWithDoors = Convert.ToBoolean(parsedSettings["ExportZoneWithDoors"]);
             }
 
             if (parsedSettings.ContainsKey("ModelExportFormat"))

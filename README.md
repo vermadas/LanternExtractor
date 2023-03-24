@@ -51,13 +51,11 @@ The intermediate format supports:
 ### Features in this fork
 - Connection to a server database
 - Customized player character model exporting to glTF
+- Export zones with doors (no animations)
 
 ## What’s Next
   - Particle systems
   - Post Velious zone support
-
-### What's Next in this fork
-  - Export zones with doors
 
 ## How To Use
 Please visit the [wiki](https://github.com/LanternEQ/LanternExtractor/wiki) for more info.

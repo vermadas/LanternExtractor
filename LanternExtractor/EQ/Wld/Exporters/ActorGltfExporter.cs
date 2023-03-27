@@ -22,6 +22,12 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 return;
             }
 
+            if (wldFile.WldType == WldType.Sky)
+            {
+                ExportSky(settings, wldFile, logger);
+            }
+
+
             foreach (var actor in wldFile.GetFragmentsOfType<Actor>())
             {
                 switch (actor.ActorType)
@@ -72,7 +78,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             return materialLists;
         }
 
-        private static void ExportZone(WldFileZone wldFileZone, Settings settings, ILogger logger )
+        private static void ExportZone(WldFileZone wldFileZone, Settings settings, ILogger logger)
         {
             var zoneMeshes = wldFileZone.GetFragmentsOfType<Mesh>();
 
@@ -298,10 +304,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     {
                         secondaryGltfWriter.AddFragmentData(secondaryMesh, skeleton);
                         foreach (var animationKey in skeleton.Animations.Keys
-							.OrderBy(k => k, new AnimationKeyComparer()))
+                            .OrderBy(k => k, new AnimationKeyComparer()))
                         {
-                            secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, 
-								wldFile.WldType == WldType.Characters, false);
+                            secondaryGltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
+                                wldFile.WldType == WldType.Characters, false);
                         }
                     }
 
@@ -315,10 +321,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (settings.ExportAllAnimationFrames)
             {
                 foreach (var animationKey in skeleton.Animations.Keys
-					.OrderBy(k => k, new AnimationKeyComparer()))
+                    .OrderBy(k => k, new AnimationKeyComparer()))
                 {
-                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, 
-						wldFile.WldType == WldType.Characters, false);
+                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
+                        wldFile.WldType == WldType.Characters, false);
                 }
             }
 
@@ -328,6 +334,71 @@ namespace LanternExtractor.EQ.Wld.Exporters
             // TODO: bother with skin variants? If GLTF can just copy the .gltf and change the
             // corresponding image URIs. If GLB then would have to repackage every variant.
             // KHR_materials_variants extension is made for this, but no support for it in SharpGLTF
+        }
+
+        private static void ExportSky(Settings settings, WldFile skyWld, ILogger logger)
+        {
+            var skySkeletons = skyWld.GetFragmentsOfType<SkeletonHierarchy>();
+            var skySkeletonMeshNames = new List<string>();
+            skySkeletons.ForEach(s => s.Skeleton.ForEach(b =>
+            {
+                if (b.MeshReference?.Mesh != null)
+                {
+                    skySkeletonMeshNames.Add(b.MeshReference.Mesh.Name);
+                }
+            }));
+
+            var skyMeshes = skyWld.GetFragmentsOfType<Mesh>().Where(m => !skySkeletonMeshNames.Contains(m.Name));
+
+            var materialLists = GatherMaterialLists(skySkeletons.Cast<WldFragment>().Concat(skyMeshes.Cast<WldFragment>()).ToList());
+
+            var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
+
+            var exportFolder = skyWld.GetExportFolderForWldType();
+
+            var textureImageFolder = $"{exportFolder}Textures/";
+            gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
+
+            foreach (var mesh in skyMeshes)
+            {
+                gltfWriter.AddFragmentData(
+                    mesh: mesh,
+                    generationMode: ModelGenerationMode.Separate);
+            }
+
+            foreach (var skeleton in skySkeletons)
+            {
+                var combinedMeshName = FragmentNameCleaner.CleanName(skeleton);
+                for (int i = 0; i < skeleton.Skeleton.Count; i++)
+                {
+                    var bone = skeleton.Skeleton[i];
+                    var mesh = bone?.MeshReference?.Mesh;
+                    if (mesh != null)
+                    {
+                        MeshExportHelper.ShiftMeshVertices(mesh, skeleton, false, "pos", 0, i);
+                        gltfWriter.AddFragmentData(
+                            mesh: mesh,
+                            skeleton: skeleton,
+                            meshNameOverride: combinedMeshName,
+                            singularBoneIndex: i);
+                    }
+                }
+
+                gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, skeleton.ModelBase);
+                gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, true);
+
+				if (settings.ExportAllAnimationFrames)
+				{
+					foreach (var animationKey in skeleton.Animations.Keys)
+					{
+						gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, false, false);
+					}
+				}
+			}
+
+            var exportFilePath = $"{exportFolder}sky.gltf";
+            gltfWriter.WriteAssetToFile(exportFilePath, true);
         }
     }
 

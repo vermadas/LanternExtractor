@@ -99,7 +99,8 @@ namespace LanternExtractor.EQ.Wld
         /// <param name="logger">The logger used for debug output</param>
         protected WldFile(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
             WldFile fileToInject)
-            : this(wldFile, zoneName, type, logger, settings, new List<WldFile>() { fileToInject }) { }
+            : this(wldFile, zoneName, type, logger, settings, 
+                  fileToInject != null ? new List<WldFile>() { fileToInject } : null) { }
 
         /// <summary>
         /// Constructor setting data references used during the initialization process
@@ -503,8 +504,11 @@ namespace LanternExtractor.EQ.Wld
         {
             var actors = GetFragmentsOfType<Actor>();
 
-            _wldFilesToInject?.ForEach(w => actors.AddRange(w.GetFragmentsOfType<Actor>()));
-
+            if (_wldFilesToInject != null)
+            {
+				_wldFilesToInject.ForEach(w => actors.AddRange(w.GetFragmentsOfType<Actor>()));
+			}
+            
             if (actors.Count == 0)
             {
                 return;
@@ -657,7 +661,10 @@ namespace LanternExtractor.EQ.Wld
                 skeleton.BuildSkeletonData(_wldType == WldType.Characters || _settings.ModelExportFormat == ModelExportFormat.Intermediate);
             }
 
-            _wldFilesToInject?.ForEach(w => (w as WldFileCharacters)?.BuildSkeletonData());
+            if (_wldFilesToInject != null)
+            {
+				_wldFilesToInject.ForEach(w => (w as WldFileCharacters)?.BuildSkeletonData());
+			}    
         }
     }
 }

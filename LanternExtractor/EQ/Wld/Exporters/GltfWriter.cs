@@ -168,7 +168,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {"p08", "Stand (Arms at Sides)"},
             {"o02", "Idle (Arms at Sides)"},
             {"o03", "Idle (Sitting)"},
-            {"pos", "Pose"},
+            {"pos", "Default"},
             {"drf", "Pose"}
         };
         private static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));

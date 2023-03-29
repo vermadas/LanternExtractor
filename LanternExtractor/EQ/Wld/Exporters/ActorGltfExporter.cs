@@ -200,7 +200,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                                 if (mesh != null)
                                 {
                                     var originalVertices =
-                                        MeshExportHelper.ShiftMeshVertices(mesh, skeleton, false, "pos", 0, i);
+                                        MeshExportHelper.ShiftMeshVertices(mesh, skeleton, false, "pos", 0, i, true);
                                     gltfWriter.AddFragmentData(
                                         mesh: mesh,
                                         generationMode: ModelGenerationMode.Combine,
@@ -212,7 +212,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                                     mesh.Vertices = originalVertices;
                                 }
                             }
-                        }
+						}
 
                         gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, null, instance);
                         addedMeshOnce = true;
@@ -271,7 +271,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 if (mesh != null)
                 {
                     MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
-                        wldFile.WldType == WldType.Characters, "pos", 0, i);
+                        wldFile.WldType == WldType.Characters, "pos", 0, i, true);
 
                     gltfWriter.AddFragmentData(mesh, skeleton, i);
                 }
@@ -316,10 +316,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
             }
 
-            gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
-
             if (settings.ExportAllAnimationFrames)
             {
+				gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
+				
                 foreach (var animationKey in skeleton.Animations.Keys
                     .OrderBy(k => k, new AnimationKeyComparer()))
                 {
@@ -376,7 +376,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var mesh = bone?.MeshReference?.Mesh;
                     if (mesh != null)
                     {
-                        MeshExportHelper.ShiftMeshVertices(mesh, skeleton, false, "pos", 0, i);
+                        MeshExportHelper.ShiftMeshVertices(mesh, skeleton, false, "pos", 0, i, true);
                         gltfWriter.AddFragmentData(
                             mesh: mesh,
                             skeleton: skeleton,
@@ -386,10 +386,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
 
                 gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, skeleton.ModelBase);
-                gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, true);
 
 				if (settings.ExportAllAnimationFrames)
 				{
+					gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, true);
 					foreach (var animationKey in skeleton.Animations.Keys)
 					{
 						gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, false, false);

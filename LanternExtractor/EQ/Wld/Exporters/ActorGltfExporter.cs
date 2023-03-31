@@ -135,7 +135,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
             }
 
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
             var textureImageFolder = $"{wldFileZone.GetExportFolderForWldType()}Textures/";
             gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
 
@@ -232,7 +232,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (mesh == null) return;
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
 
             var exportFolder = wldFile.GetExportFolderForWldType();
 
@@ -256,7 +256,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
 
             var materialLists = GatherMaterialLists(new List<WldFragment>() { skeleton });
             var exportFolder = wldFile.GetExportFolderForWldType();
@@ -290,7 +290,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 for (var i = 0; i < skeleton.SecondaryMeshes.Count; i++)
                 {
                     var secondaryMesh = skeleton.SecondaryMeshes[i];
-                    var secondaryGltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
+                    var secondaryGltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
                     secondaryGltfWriter.CopyMaterialList(gltfWriter);
                     secondaryGltfWriter.AddFragmentData(skeleton.Meshes[0], skeleton);
 
@@ -353,7 +353,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var materialLists = GatherMaterialLists(skySkeletons.Cast<WldFragment>().Concat(skyMeshes.Cast<WldFragment>()).ToList());
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger);
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
 
             var exportFolder = skyWld.GetExportFolderForWldType();
 

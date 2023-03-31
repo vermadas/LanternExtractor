@@ -55,7 +55,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
         #region Constants
         private static readonly float MaterialRoughness = 0.9f;
-        private static readonly Vector4 DefaultVertexColor = new Vector4(0f, 0f, 0f, 1f); // Black
         private static readonly string MaterialInvisName = "Invis";
         private static readonly string MaterialBlankName = "Blank";
         private static readonly string DefaultModelPoseAnimationKey = "pos";
@@ -181,9 +180,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<string, IMeshBuilder<MaterialBuilder>> _sharedMeshes;
         private IDictionary<string, List<NodeBuilder>> _skeletons;
         private IDictionary<string, List<(string, string)>> _skeletonChildrenAttachBones;
+        private bool _separateTwoFacedTriangles;
         private PlayerCharacterModel _playerCharacterModel;
 
-        public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, PlayerCharacterModel playerCharacterModel = null)
+        public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, bool separateTwoFacedTriangles = false, PlayerCharacterModel playerCharacterModel = null)
         {
             _exportVertexColors = exportVertexColors;
             _exportFormat = exportFormat;
@@ -194,6 +194,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             _skeletons = new Dictionary<string, List<NodeBuilder>>();
             _skeletonChildrenAttachBones = new Dictionary<string, List<(string, string)>>();
             _sharedMeshes = new Dictionary<string, IMeshBuilder<MaterialBuilder>>();
+            _separateTwoFacedTriangles = separateTwoFacedTriangles;
             _playerCharacterModel = playerCharacterModel;
             _scene = new SceneBuilder();
         }
@@ -305,6 +306,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var gltfVertexPositionToWldVertexIndex = new Dictionary<VertexPositionNormal, int>();
             
             var polygonIndex = 0;
+            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles);
             foreach (var materialGroup in mesh.MaterialGroups)
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
@@ -353,26 +355,29 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     if (!canExportVertexColors && !isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexTexture1, VertexEmpty>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     else if (!canExportVertexColors && isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexTexture1, VertexJoints4>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     else if (canExportVertexColors && !isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexColor1Texture1, VertexEmpty>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     else //(canExportVertexColors && isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexColor1Texture1, VertexJoints4>
-                            (primitive, mesh, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
                     }
                     triangleGtlfVpToWldVi.ToList().ForEach(kv => gltfVertexPositionToWldVertexIndex[kv.Key] = kv.Value);
                 }
+
+                meshHelper.Reset();
             }
+
             if (generationMode == ModelGenerationMode.Separate)
             {
                 if (mesh.AnimatedVerticesReference != null)
@@ -752,41 +757,19 @@ namespace LanternExtractor.EQ.Wld.Exporters
         }
 
         private IDictionary<VertexPositionNormal,int> AddTriangleToMesh<TvG, TvM, TvS>(
-            IPrimitiveBuilder primitive, Mesh mesh,
+            IPrimitiveBuilder primitive, WldMeshHelper meshHelper,
             int polygonIndex, bool canExportVertexColors, bool isSkinned,
             int singularBoneIndex = -1, bool usesMobPieces = false, ObjInstance objectInstance = null)
                 where TvG : struct, IVertexGeometry
                 where TvM : struct, IVertexMaterial
                 where TvS : struct, IVertexSkinning
         {
-            var triangle = mesh.Indices[polygonIndex];
-            (int v0, int v1, int v2) vertexIndices = (triangle.Vertex1, triangle.Vertex2, triangle.Vertex3);
-            (Vector3 v0, Vector3 v1, Vector3 v2) vertexPositions = (
-                (mesh.Vertices[vertexIndices.v0] + mesh.Center).ToVector3(true),
-                (mesh.Vertices[vertexIndices.v1] + mesh.Center).ToVector3(true),
-                (mesh.Vertices[vertexIndices.v2] + mesh.Center).ToVector3(true));
-            (Vector3 v0, Vector3 v1, Vector3 v2) vertexNormals = (
-                Vector3.Normalize(-mesh.Normals[vertexIndices.v0].ToVector3()),
-                Vector3.Normalize(-mesh.Normals[vertexIndices.v1].ToVector3()),
-                Vector3.Normalize(-mesh.Normals[vertexIndices.v2].ToVector3()));
-            (Vector2 v0, Vector2 v1, Vector2 v2) vertexUvs = (
-                mesh.TextureUvCoordinates[vertexIndices.v0].ToVector2(true),
-                mesh.TextureUvCoordinates[vertexIndices.v1].ToVector2(true),
-                mesh.TextureUvCoordinates[vertexIndices.v2].ToVector2(true));
-            (int v0, int v1, int v2) boneIndexes = (singularBoneIndex, singularBoneIndex, singularBoneIndex);
-            if (isSkinned && (usesMobPieces || singularBoneIndex == -1))
-            {
-                var boneOffset = singularBoneIndex == -1 ? 0 : singularBoneIndex;
-                boneIndexes = (
-                    GetBoneIndexForVertex(mesh, vertexIndices.v0) + boneOffset,
-                    GetBoneIndexForVertex(mesh, vertexIndices.v1) + boneOffset,
-                    GetBoneIndexForVertex(mesh, vertexIndices.v2) + boneOffset);
-            }
-            (Vector4? v0, Vector4? v1, Vector4? v2) vertexColors = (null, null, null);
-            if (canExportVertexColors)
-            {
-                vertexColors = GetVertexColorVectors(mesh, vertexIndices, objectInstance);
-            }
+            var triangle = meshHelper.GetTriangle(polygonIndex);
+            var vertexPositions = meshHelper.GetVertexPositions(triangle);
+            var vertexNormals = meshHelper.GetVertexNormals(triangle);
+            var vertexUvs = meshHelper.GetVertexUvs(triangle);
+            var boneIndexes = meshHelper.GetBoneIndexes(triangle, isSkinned, usesMobPieces, singularBoneIndex);
+            var vertexColors = meshHelper.GetVertexColorVectors(triangle, canExportVertexColors);
 
             var vertex0 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v0, vertexNormals.v0, vertexUvs.v0, vertexColors.v0, isSkinned, boneIndexes.v0);
             var vertex1 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v1, vertexNormals.v1, vertexUvs.v1, vertexColors.v1, isSkinned, boneIndexes.v1);
@@ -805,9 +788,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             var gltfVpToWldVi = new Dictionary<VertexPositionNormal, int>();
 
-            gltfVpToWldVi[new VertexPositionNormal(vertexPositions.v0, vertexNormals.v0)] = vertexIndices.v0;
-            gltfVpToWldVi[new VertexPositionNormal(vertexPositions.v1, vertexNormals.v1)] = vertexIndices.v1;
-            gltfVpToWldVi[new VertexPositionNormal(vertexPositions.v2, vertexNormals.v2)] = vertexIndices.v2;
+            gltfVpToWldVi[new VertexPositionNormal(vertexPositions.v0, vertexNormals.v0)] = triangle.Vertex1;
+            gltfVpToWldVi[new VertexPositionNormal(vertexPositions.v1, vertexNormals.v1)] = triangle.Vertex2;
+            gltfVpToWldVi[new VertexPositionNormal(vertexPositions.v2, vertexNormals.v2)] = triangle.Vertex3;
 
             return gltfVpToWldVi;
         }
@@ -842,35 +825,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             return (VertexBuilder<TvG, TvM, TvS>)vertexBuilder;
-        }
-
-        private (Vector4 v0, Vector4 v1, Vector4 v2) GetVertexColorVectors(Mesh mesh, 
-            (int v0, int v1, int v2) vertexIndices, ObjInstance objectInstance = null)
-        {
-            var objInstanceColors = objectInstance?.Colors?.Colors ?? new List<WldColor>();
-            var meshColors = mesh?.Colors ?? new List<WldColor>();
-
-            var v0Color = CoalesceVertexColor(meshColors, objInstanceColors, vertexIndices.v0);
-            var v1Color = CoalesceVertexColor(meshColors, objInstanceColors, vertexIndices.v1);
-            var v2Color = CoalesceVertexColor(meshColors, objInstanceColors, vertexIndices.v2);
-
-            return (v0Color, v1Color, v2Color);
-        }
-
-        private Vector4 CoalesceVertexColor(List<WldColor> meshColors, List<WldColor> objInstanceColors, int vertexIndex)
-        {
-            if (vertexIndex < objInstanceColors.Count)
-            {
-                return objInstanceColors[vertexIndex].ToVector4();
-            }
-            else if (vertexIndex < meshColors.Count)
-            {
-                return meshColors[vertexIndex].ToVector4();
-            }
-            else
-            {
-                return DefaultVertexColor;
-            }
         }
 
         private void AddAnimatedMeshMorphTargets(Mesh mesh, IMeshBuilder<MaterialBuilder> gltfMesh,
@@ -1000,19 +954,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
 
-        private int GetBoneIndexForVertex(Mesh mesh, int vertexIndex)
-        {
-            foreach (var indexedMobVertexPiece in mesh.MobPieces)
-            {
-                if (vertexIndex >= indexedMobVertexPiece.Value.Start &&
-                    vertexIndex < indexedMobVertexPiece.Value.Start + indexedMobVertexPiece.Value.Count)
-                {
-                    return indexedMobVertexPiece.Key;
-                }
-            }
-            return 0;
-        }
-
         private string FixFilePath(string filePath)
         {
             var fixedExtension = _exportFormat == GltfExportFormat.GlTF ? ".gltf" : ".glb";
@@ -1060,7 +1001,177 @@ namespace LanternExtractor.EQ.Wld.Exporters
         }
     }
 
-    static class ImageAlphaConverter
+    public class WldMeshHelper
+    {
+        private readonly Mesh _wldMesh;
+        private readonly bool _separateTwoFacedTriangles;
+        private readonly ISet<DataTypes.Polygon> _uniqueTriangles;
+        private readonly IDictionary<int, Vector3> _wldVertexIndexToDuplicatedVertexNormals;
+        private readonly TriangleVertexSetComparer _triangleSetComparer;
+
+		private static readonly Vector4 DefaultVertexColor = new Vector4(0f, 0f, 0f, 1f); // Black
+
+		public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles)
+        {
+            _wldMesh = wldMesh;
+            _separateTwoFacedTriangles = separateTwoFacedTriangles;
+            _triangleSetComparer = new TriangleVertexSetComparer();
+            _uniqueTriangles = new HashSet<DataTypes.Polygon>(_triangleSetComparer);
+            _wldVertexIndexToDuplicatedVertexNormals = new Dictionary<int, Vector3>();
+        }
+
+        public DataTypes.Polygon GetTriangle(int triangleIndex)
+        {
+            return _wldMesh.Indices[triangleIndex];
+        }
+
+        public (Vector3 v0, Vector3 v1, Vector3 v2) GetVertexPositions(DataTypes.Polygon triangle)
+        {
+			(Vector3 v0, Vector3 v1, Vector3 v2) vertexPositions = (
+			(_wldMesh.Vertices[triangle.Vertex1] + _wldMesh.Center).ToVector3(true),
+			(_wldMesh.Vertices[triangle.Vertex2] + _wldMesh.Center).ToVector3(true),
+			(_wldMesh.Vertices[triangle.Vertex3] + _wldMesh.Center).ToVector3(true));
+
+            return vertexPositions;
+		}
+
+        public (Vector3 v0, Vector3 v1, Vector3 v2) GetVertexNormals(DataTypes.Polygon triangle)
+        {
+			if (_separateTwoFacedTriangles)
+			{
+				if (!_uniqueTriangles.Contains(triangle, _triangleSetComparer))
+				{
+					_uniqueTriangles.Add(triangle);
+				}
+				else
+				{
+                    return GetDuplicateVertexNormalsForTriangle(triangle);
+				}
+			}
+
+			(Vector3 v0, Vector3 v1, Vector3 v2) vertexNormals = (
+			    Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex1].ToVector3()),
+	            Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex2].ToVector3()),
+	            Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex3].ToVector3()));
+
+            return vertexNormals;
+		}
+
+        public (Vector2 v0, Vector2 v1, Vector2 v2) GetVertexUvs(DataTypes.Polygon triangle)
+        {
+			(Vector2 v0, Vector2 v1, Vector2 v2) vertexUvs = (
+			    _wldMesh.TextureUvCoordinates[triangle.Vertex1].ToVector2(true),
+				_wldMesh.TextureUvCoordinates[triangle.Vertex2].ToVector2(true),
+				_wldMesh.TextureUvCoordinates[triangle.Vertex3].ToVector2(true));
+
+            return vertexUvs;
+		}
+
+        public (int v0, int v1, int v2) GetBoneIndexes(DataTypes.Polygon triangle, bool isSkinned, bool usesMobPieces, int singularBoneIndex)
+        {
+			(int v0, int v1, int v2) boneIndexes = (singularBoneIndex, singularBoneIndex, singularBoneIndex);
+			if (isSkinned && (usesMobPieces || singularBoneIndex == -1))
+			{
+				var boneOffset = singularBoneIndex == -1 ? 0 : singularBoneIndex;
+				boneIndexes = (
+				    GetBoneIndexForVertex(triangle.Vertex1) + boneOffset,
+				    GetBoneIndexForVertex(triangle.Vertex2) + boneOffset,
+					GetBoneIndexForVertex(triangle.Vertex3) + boneOffset);
+			}
+
+            return boneIndexes;
+		}
+
+		public (Vector4? v0, Vector4? v1, Vector4? v2) GetVertexColorVectors(DataTypes.Polygon triangle, bool canExportVertexColors, ObjInstance objectInstance = null)
+		{
+			if (!canExportVertexColors) return (null, null, null);
+
+			var objInstanceColors = objectInstance?.Colors?.Colors ?? new List<WldColor>();
+			var meshColors = _wldMesh?.Colors ?? new List<WldColor>();
+
+			var v0Color = CoalesceVertexColor(meshColors, objInstanceColors, triangle.Vertex1);
+			var v1Color = CoalesceVertexColor(meshColors, objInstanceColors, triangle.Vertex2);
+			var v2Color = CoalesceVertexColor(meshColors, objInstanceColors, triangle.Vertex3);
+
+			return (v0Color, v1Color, v2Color);
+		}
+
+        public void Reset()
+        {
+            _uniqueTriangles.Clear();
+            _wldVertexIndexToDuplicatedVertexNormals.Clear();
+        }
+
+		private (Vector3 v0, Vector3 v1, Vector3 v2) GetDuplicateVertexNormalsForTriangle(DataTypes.Polygon triangle)
+        {
+            if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex1, out var v0Normal))
+            {
+                v0Normal = Vector3.Normalize(_wldMesh.Normals[triangle.Vertex1].ToVector3());
+            }
+			if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex2, out var v1Normal))
+			{
+				v1Normal = Vector3.Normalize(_wldMesh.Normals[triangle.Vertex2].ToVector3());
+			}
+			if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex3, out var v2Normal))
+			{
+				v2Normal = Vector3.Normalize(_wldMesh.Normals[triangle.Vertex3].ToVector3());
+			}
+
+            return (v0Normal, v1Normal, v2Normal);
+		}
+
+		private int GetBoneIndexForVertex(int vertexIndex)
+		{
+			foreach (var indexedMobVertexPiece in _wldMesh.MobPieces)
+			{
+				if (vertexIndex >= indexedMobVertexPiece.Value.Start &&
+					vertexIndex < indexedMobVertexPiece.Value.Start + indexedMobVertexPiece.Value.Count)
+				{
+					return indexedMobVertexPiece.Key;
+				}
+			}
+			return 0;
+		}
+
+		private Vector4 CoalesceVertexColor(List<WldColor> meshColors, List<WldColor> objInstanceColors, int vertexIndex)
+		{
+			if (vertexIndex < objInstanceColors.Count)
+			{
+				return objInstanceColors[vertexIndex].ToVector4();
+			}
+			else if (vertexIndex < meshColors.Count)
+			{
+				return meshColors[vertexIndex].ToVector4();
+			}
+			else
+			{
+				return DefaultVertexColor;
+			}
+		}
+	}
+
+	public class TriangleVertexSetComparer : IEqualityComparer<DataTypes.Polygon>
+	{
+		public bool Equals(DataTypes.Polygon polyX, DataTypes.Polygon polyY)
+		{
+			var polyXSet = new HashSet<int>() { polyX.Vertex1, polyX.Vertex2, polyX.Vertex3 };
+			var polyYSet = new HashSet<int>() { polyY.Vertex1, polyY.Vertex2, polyY.Vertex3 };
+
+            return polyXSet.SetEquals(polyYSet);
+		}
+
+		public int GetHashCode(DataTypes.Polygon poly)
+		{
+            var polyVertList1 = new List<int>() { poly.Vertex1, poly.Vertex2, poly.Vertex3 };
+            polyVertList1.Sort();
+
+			unchecked
+            {
+                return 391 + polyVertList1.GetHashCode();
+            }
+		}
+	}
+	static class ImageAlphaConverter
     {
         public static string AddAlphaToImage(string filePath, ShaderType shaderType)
         {

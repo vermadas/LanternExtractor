@@ -90,7 +90,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (skeleton == null) return;
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, pcEquipment);
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles, pcEquipment);
 
             var allMeshes = skeleton.Meshes.Union(skeleton.SecondaryMeshes);
             var bodyMeshName = pcEquipment.IsChestRobe() ? $"{actorName}01" : actorName;

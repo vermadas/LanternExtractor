@@ -103,6 +103,11 @@ namespace LanternExtractor
         /// </summary>
         public bool ExportGltfInGlbFormat { get; private set; }
 
+		/// <summary>
+		/// Generate duplicate sets of vertices for triangles sharing vertices with another
+		/// </summary>
+		public bool SeparateTwoFacedTriangles { get; private set; }
+
         /// <summary>
         /// Additional files that should be copied when extracting with `all` or `clientdata`
         /// </summary>
@@ -232,8 +237,13 @@ namespace LanternExtractor
             {
                 ExportGltfInGlbFormat = Convert.ToBoolean(parsedSettings["ExportGltfInGlbFormat"]);
             }
-			
-            if (parsedSettings.ContainsKey("ExportAdditionalAnimations"))
+
+			if (parsedSettings.ContainsKey("SeparateTwoFacedTriangles"))
+			{
+				SeparateTwoFacedTriangles = Convert.ToBoolean(parsedSettings["SeparateTwoFacedTriangles"]);
+			}
+
+			if (parsedSettings.ContainsKey("ExportAdditionalAnimations"))
             {
                 ExportAdditionalAnimations = Convert.ToBoolean(parsedSettings["ExportAdditionalAnimations"]);
             }

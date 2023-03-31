@@ -236,11 +236,21 @@ namespace LanternExtractor.EQ.Wld.Fragments
                 Animations["pos"] = new Animation();
             }
 
+            if (pieceName.StartsWith("SSNSSNBO_L"))
+            {
+                pieceName = FixSsnPosBoneName(pieceName);
+            }
+
             Animations["pos"].AddTrack(track, pieceName, Animation.CleanBoneName(pieceName),
                 Animation.CleanBoneAndStripBase(pieceName, ModelBase));
             track.TrackDefFragment.IsAssigned = true;
             track.IsProcessed = true;
             track.IsPoseAnimation = true;
+        }
+
+        private string FixSsnPosBoneName(string pieceName)
+        {
+            return pieceName.Substring(3);
         }
 
         public void AddTrackDataEquipment(TrackFragment track, string boneName, bool isDefault = false)

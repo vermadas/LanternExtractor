@@ -172,9 +172,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
         };
         private static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
         private static readonly Matrix4x4 CorrectedWorldMatrix = MirrorXAxisMatrix * Matrix4x4.CreateScale(0.1f);
-        #endregion
+        private static readonly Matrix4x4 CorrectedSingularActorMatrix = Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
+		#endregion
 
-        private SceneBuilder _scene;
+		private SceneBuilder _scene;
         private IMeshBuilder<MaterialBuilder> _combinedMeshBuilder;
         private ISet<string> _meshMaterialsToSkip;
         private IDictionary<string, IMeshBuilder<MaterialBuilder>> _sharedMeshes;
@@ -261,18 +262,16 @@ namespace LanternExtractor.EQ.Wld.Exporters
             int singularBoneIndex = -1, 
             ObjInstance objectInstance = null, 
             int instanceIndex = 0,
-            bool isZoneMesh = false,
             bool usesMobPieces = false)
         {
             var meshName = meshNameOverride ?? FragmentNameCleaner.CleanName(mesh);
-            var transformMatrix = objectInstance == null ? Matrix4x4.Identity : CreateTransformMatrixForObjectInstance(objectInstance);
-            transformMatrix = transformMatrix *= isZoneMesh ? CorrectedWorldMatrix : MirrorXAxisMatrix;
-
+			var transformMatrix = objectInstance == null ? Matrix4x4.Identity : CreateTransformMatrixForObjectInstance(objectInstance);
+			
             var canExportVertexColors = _exportVertexColors &&
                 ((objectInstance?.Colors?.Colors != null && objectInstance.Colors.Colors.Any())
                 || (mesh?.Colors != null && mesh.Colors.Any()));
             
-            if (mesh.AnimatedVerticesReference != null && !canExportVertexColors && objectInstance != null && 
+            if (mesh.AnimatedVerticesReference == null && !canExportVertexColors && objectInstance != null && 
                 _sharedMeshes.TryGetValue(meshName, out var existingMesh))
             {
                 if (generationMode == ModelGenerationMode.Separate)
@@ -486,15 +485,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (objectInstance != null)
             {
                 worldTransformMatrix *= CreateTransformMatrixForObjectInstance(objectInstance);
-                worldTransformMatrix *= CorrectedWorldMatrix;
             }
-            else if (isZoneMesh)
+            else if (!isZoneMesh)
             {
-                worldTransformMatrix *= CorrectedWorldMatrix;
-            }
-            else
-            {
-                worldTransformMatrix *= Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
+                worldTransformMatrix *= CorrectedSingularActorMatrix;
             }
 
             if (skeletonModelBase == null || !_skeletons.TryGetValue(skeletonModelBase, out var skeleton))
@@ -526,10 +520,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
             WriteAssetToFile(fileName, false);
         }
 
-        public void WriteAssetToFile(string fileName, bool useExistingImages, string skeletonModelBase = null, bool cleanupTexturesFolder = false)
+        public void WriteAssetToFile(string fileName, bool useExistingImages, bool isZone = false, string skeletonModelBase = null, bool cleanupTexturesFolder = false)
         {
             AddCombinedMeshToScene(false, null, skeletonModelBase);
-            var outputFilePath = FixFilePath(fileName);
+            if (isZone)
+			{
+                _scene.ApplyBasisTransform(CorrectedWorldMatrix);
+			}
+
+			var outputFilePath = FixFilePath(fileName);
             var model = _scene.ToGltf2();
             if (_exportFormat == GltfExportFormat.GlTF)
             {
@@ -769,7 +768,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var vertexNormals = meshHelper.GetVertexNormals(triangle);
             var vertexUvs = meshHelper.GetVertexUvs(triangle);
             var boneIndexes = meshHelper.GetBoneIndexes(triangle, isSkinned, usesMobPieces, singularBoneIndex);
-            var vertexColors = meshHelper.GetVertexColorVectors(triangle, canExportVertexColors);
+            var vertexColors = meshHelper.GetVertexColorVectors(triangle, canExportVertexColors, objectInstance);
 
             var vertex0 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v0, vertexNormals.v0, vertexUvs.v0, vertexColors.v0, isSkinned, boneIndexes.v0);
             var vertex1 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v1, vertexNormals.v1, vertexUvs.v1, vertexColors.v1, isSkinned, boneIndexes.v1);

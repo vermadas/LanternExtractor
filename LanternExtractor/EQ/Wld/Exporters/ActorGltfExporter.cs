@@ -144,8 +144,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 gltfWriter.AddFragmentData(
                     mesh: mesh,
                     generationMode: ModelGenerationMode.Combine,
-                    meshNameOverride: shortName,
-                    isZoneMesh: true);
+                    meshNameOverride: shortName);
             }
 
             gltfWriter.AddCombinedMeshToScene(true, shortName);
@@ -169,8 +168,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                             mesh: objMesh,
                             generationMode: ModelGenerationMode.Separate,
                             objectInstance: instance,
-                            instanceIndex: instanceIndex++,
-                            isZoneMesh: true);
+                            instanceIndex: instanceIndex++);
                     }
                 }
                 else if (actor.ActorType == ActorType.Skeletal)
@@ -207,8 +205,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                                         meshNameOverride: combinedMeshName,
                                         singularBoneIndex: i,
                                         objectInstance: instance,
-                                        instanceIndex: instanceIndex,
-                                        isZoneMesh: true);
+                                        instanceIndex: instanceIndex);
                                     mesh.Vertices = originalVertices;
                                 }
                             }
@@ -222,7 +219,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var exportFilePath = $"{wldFileZone.GetExportFolderForWldType()}{wldFileZone.ZoneShortname}.gltf";
-            gltfWriter.WriteAssetToFile(exportFilePath, true);
+            gltfWriter.WriteAssetToFile(exportFilePath, true, true);
         }
 
         private static void ExportStaticActor(Actor actor, Settings settings, WldFile wldFile, ILogger logger)
@@ -312,7 +309,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     }
 
                     var secondaryExportPath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}_{i:00}.gltf";
-                    secondaryGltfWriter.WriteAssetToFile(secondaryExportPath, true, skeleton.ModelBase);
+                    secondaryGltfWriter.WriteAssetToFile(secondaryExportPath, true, false, skeleton.ModelBase);
                 }
             }
 
@@ -329,7 +326,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var exportFilePath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}.gltf";
-            gltfWriter.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
+            gltfWriter.WriteAssetToFile(exportFilePath, true, false, skeleton.ModelBase);
 
             // TODO: bother with skin variants? If GLTF can just copy the .gltf and change the
             // corresponding image URIs. If GLB then would have to repackage every variant.
@@ -398,7 +395,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			}
 
             var exportFilePath = $"{exportFolder}sky.gltf";
-            gltfWriter.WriteAssetToFile(exportFilePath, true);
+            gltfWriter.WriteAssetToFile(exportFilePath, true, true);
         }
     }
 

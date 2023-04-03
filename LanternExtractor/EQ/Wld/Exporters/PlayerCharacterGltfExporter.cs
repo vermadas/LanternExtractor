@@ -158,7 +158,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var exportFilePath = Path.Combine(exportFolder, $"{FragmentNameCleaner.CleanName(skeleton)}.gltf");
-            gltfWriter.WriteAssetToFile(exportFilePath, false, skeleton.ModelBase, true);
+            gltfWriter.WriteAssetToFile(exportFilePath, false, false, skeleton.ModelBase, true);
 
             var jsonOutFilePath = Path.Combine(exportFolder, $"PcEquip_{DateTime.Now:yyyyMMddhhmmss}.json");
             var serializerOptions = new JsonSerializerOptions() { WriteIndented = true };

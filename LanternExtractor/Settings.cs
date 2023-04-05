@@ -87,13 +87,18 @@ namespace LanternExtractor
         /// </summary>
         public bool ExportZoneWithDoors { get; private set; }
 
-        /// <summary>
-        /// Export vertex colors with glTF model. Default behavior of glTF renderers
-        /// is to mix the vertex color with the base color, which will not look right.
-        /// Only turn this on if you intend to do some post-processing that
-        /// requires vertex colors being present.
-        /// </summary>
-        public bool ExportGltfVertexColors { get; private set; }
+		/// <summary>
+		/// Exports zone with objects with skeletal animations included
+		/// </summary>
+		public bool ExportZoneObjectsWithSkeletalAnimations { get; private set; }
+
+		/// <summary>
+		/// Export vertex colors with glTF model. Default behavior of glTF renderers
+		/// is to mix the vertex color with the base color, which will not look right.
+		/// Only turn this on if you intend to do some post-processing that
+		/// requires vertex colors being present.
+		/// </summary>
+		public bool ExportGltfVertexColors { get; private set; }
 
         /// <summary>
         /// Exports glTF models in .GLB file format. GLB packages the .glTF json, the
@@ -201,8 +206,13 @@ namespace LanternExtractor
             {
                 ExportZoneWithDoors = Convert.ToBoolean(parsedSettings["ExportZoneWithDoors"]);
             }
+			
+			if (parsedSettings.ContainsKey("ExportZoneObjectsWithSkeletalAnimations"))
+			{
+				ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(parsedSettings["ExportZoneObjectsWithSkeletalAnimations"]);
+			}
 
-            if (parsedSettings.ContainsKey("ModelExportFormat"))
+			if (parsedSettings.ContainsKey("ModelExportFormat"))
             {
                 var exportFormatSetting = (ModelExportFormat)Convert.ToInt32(parsedSettings["ModelExportFormat"]);
                 ModelExportFormat = exportFormatSetting;

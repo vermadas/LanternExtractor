@@ -168,6 +168,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                             mesh: objMesh,
                             generationMode: ModelGenerationMode.Separate,
                             objectInstance: instance,
+                            isZoneMesh: true,
                             instanceIndex: instanceIndex++);
                     }
                 }
@@ -202,6 +203,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                                     gltfWriter.AddFragmentData(
                                         mesh: mesh,
                                         generationMode: ModelGenerationMode.Combine,
+                                        isSkinned: settings.ExportZoneObjectsWithSkeletalAnimations,
                                         meshNameOverride: combinedMeshName,
                                         singularBoneIndex: i,
                                         objectInstance: instance,
@@ -211,7 +213,17 @@ namespace LanternExtractor.EQ.Wld.Exporters
                             }
 						}
 
-                        gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, null, instance);
+                        if (settings.ExportZoneObjectsWithSkeletalAnimations)
+                        {
+                            gltfWriter.AddNewSkeleton(skeleton, null, null, instance, instanceIndex);
+                            gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, true, instanceIndex);
+							gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, false, instanceIndex);
+							gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, skeleton.ModelBase, instance, instanceIndex);
+						}
+                        else
+                        {
+							gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, null, instance);
+						}  
                         addedMeshOnce = true;
                         instanceIndex++;
                     }

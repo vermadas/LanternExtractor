@@ -59,6 +59,17 @@ ExportZoneWithObjects = false
 # (glTF)
 ExportZoneWithDoors = false
 
+# !!EXPIRIMENTAL!! Export zone objects with skeletal animations
+# If ExportZoneWithObjects is true and this is also true, objects with
+# skeletal animations will have them included with the zone glTF export. Unfortunately,
+# glTF does not support a way to have one armature and animation shared among more than one instance
+# of a mesh. So every instance of a skeletal object gets its own armature and animations attached.
+# Outdoor zones in Kunark and Velious have hundreds of trees with skeletal animations. Exporting
+# those zones with this turned on will take a long time to process and will create extremely large
+# files that will be incredibly taxing for model viewers to import/load/render.
+# (glTF)
+ExportZoneObjectsWithSkeletalAnimations = false
+
 # Export vertex colors
 # Default behavior of glTF renderers is to mix the vertex color with the base color,
 # which will not look right. Only turn this on if you intend to do some post-processing that

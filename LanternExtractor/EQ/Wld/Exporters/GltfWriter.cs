@@ -262,12 +262,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
             int singularBoneIndex = -1, 
             ObjInstance objectInstance = null, 
             int instanceIndex = 0,
+            bool isZoneMesh = false,
             bool usesMobPieces = false)
         {
             var meshName = meshNameOverride ?? FragmentNameCleaner.CleanName(mesh);
 			var transformMatrix = objectInstance == null ? Matrix4x4.Identity : CreateTransformMatrixForObjectInstance(objectInstance);
-			
-            var canExportVertexColors = _exportVertexColors &&
+			transformMatrix = transformMatrix *= isZoneMesh ? CorrectedWorldMatrix : MirrorXAxisMatrix;
+
+			var canExportVertexColors = _exportVertexColors &&
                 ((objectInstance?.Colors?.Colors != null && objectInstance.Colors.Colors.Any())
                 || (mesh?.Colors != null && mesh.Colors.Any()));
             
@@ -392,11 +394,12 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
 
-        public void ApplyAnimationToSkeleton(SkeletonHierarchy skeleton, string animationKey, bool isCharacterAnimation, bool staticPose)
+        public void ApplyAnimationToSkeleton(SkeletonHierarchy skeleton, string animationKey, bool isCharacterAnimation, bool staticPose, int? instanceIndex = null)
         {
             if (isCharacterAnimation && !staticPose && animationKey == DefaultModelPoseAnimationKey) return;
 
-            if (!_skeletons.TryGetValue(skeleton.ModelBase, out var skeletonNodes))
+            var skeletonName = GetSkeletonName(skeleton, instanceIndex);
+            if (!_skeletons.TryGetValue(skeletonName, out var skeletonNodes))
             {
                 skeletonNodes = AddNewSkeleton(skeleton);
             }
@@ -468,7 +471,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
             bool isZoneMesh = false, 
             string meshName = null, 
             string skeletonModelBase = null, 
-            ObjInstance objectInstance = null)
+            ObjInstance objectInstance = null,
+            int? instanceIndex = null)
         {
             IMeshBuilder<MaterialBuilder> combinedMesh;
             if (meshName != null && _sharedMeshes.TryGetValue(meshName, out var existingMesh))
@@ -481,31 +485,42 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
             if (combinedMesh == null) return;
 
+			var skeletonName = GetSkeletonName(skeletonModelBase, instanceIndex);
+			
             var worldTransformMatrix = Matrix4x4.Identity;
-            if (objectInstance != null)
+            if (objectInstance != null && skeletonName == null)
             {
                 worldTransformMatrix *= CreateTransformMatrixForObjectInstance(objectInstance);
+                worldTransformMatrix *= CorrectedWorldMatrix;
             }
-            else if (!isZoneMesh)
+            else if (isZoneMesh)
+            {
+                worldTransformMatrix *= CorrectedWorldMatrix;
+            }
+            else
             {
                 worldTransformMatrix *= CorrectedSingularActorMatrix;
             }
 
-            if (skeletonModelBase == null || !_skeletons.TryGetValue(skeletonModelBase, out var skeleton))
+            if (skeletonName == null || !_skeletons.TryGetValue(skeletonName, out var skeletonNodes))
             {
                 _scene.AddRigidMesh(combinedMesh, worldTransformMatrix);
             }
             else
             {
-                var skeletonNodes = skeleton;
-                if (_skeletonChildrenAttachBones.TryGetValue(skeletonModelBase, out var children))
+                if (_skeletonChildrenAttachBones.TryGetValue(skeletonName, out var children))
                 {
                     foreach (var child in children)
                     {
                         skeletonNodes.AddRange(_skeletons[child.Item1]);
                     }
                 }
-                _scene.AddSkinnedMesh(combinedMesh, worldTransformMatrix, skeletonNodes.ToArray());
+                if (objectInstance != null)
+                {
+                    worldTransformMatrix = skeletonNodes[0].Parent.WorldMatrix;
+                }
+
+                _scene.AddSkinnedMesh(combinedMesh, worldTransformMatrix, skeletonNodes.ToArray());       
             }
 
             if (meshName != null && !_sharedMeshes.ContainsKey(meshName))
@@ -523,10 +538,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public void WriteAssetToFile(string fileName, bool useExistingImages, bool isZone = false, string skeletonModelBase = null, bool cleanupTexturesFolder = false)
         {
             AddCombinedMeshToScene(false, null, skeletonModelBase);
-            if (isZone)
+            /* if (isZone)
 			{
                 _scene.ApplyBasisTransform(CorrectedWorldMatrix);
-			}
+			} */
 
 			var outputFilePath = FixFilePath(fileName);
             var model = _scene.ToGltf2();
@@ -576,7 +591,64 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 Directory.Delete(Path.Combine(outputFolder, "Textures"), true);
             }
         }
-        public override void ClearExportData()
+
+		public List<NodeBuilder> AddNewSkeleton(SkeletonHierarchy skeleton, string parent = null, string attachBoneName = null, ObjInstance objInstance = null, int? instanceIndex = null)
+		{
+			var skeletonNodes = new List<NodeBuilder>();
+			var duplicateNameDictionary = new Dictionary<string, int>();
+			var skeletonName = GetSkeletonName(skeleton, instanceIndex);
+			var boneNamePrefix = instanceIndex != null ? $"{skeletonName}_" : "";
+			foreach (var bone in skeleton.Skeleton)
+			{
+				var boneName = bone.CleanedName;
+				if (duplicateNameDictionary.TryGetValue(boneName, out var count))
+				{
+					skeletonNodes.Add(new NodeBuilder($"{boneNamePrefix}{boneName}_{count:00}"));
+					duplicateNameDictionary[boneName] = ++count;
+				}
+				else
+				{
+					skeletonNodes.Add(new NodeBuilder($"{boneNamePrefix}{boneName}"));
+					duplicateNameDictionary.Add(boneName, 0);
+				}
+			}
+			if (objInstance != null)
+			{
+				var rootNode = GetRootSkeletonNodeTransformsFromObjectInstance(skeletonName, objInstance);
+				rootNode.AddNode(skeletonNodes[0]);
+			}
+			for (var i = 0; i < skeletonNodes.Count; i++)
+			{
+				var node = skeletonNodes[i];
+				var bone = skeleton.Skeleton[i];
+				bone.Children.ForEach(b => node.AddNode(skeletonNodes[b]));
+			}
+			if (parent != null && attachBoneName != null)
+			{
+				if (!_skeletons.TryGetValue(parent, out var parentSkeleton))
+				{
+					throw new InvalidOperationException($"Cannot attach child skeleton to parent: {parent}. It does not exist");
+				}
+				var attachBone = parentSkeleton
+					.Where(n => n.Name.Equals(attachBoneName, StringComparison.InvariantCultureIgnoreCase))
+					.SingleOrDefault();
+				if (attachBone == null)
+				{
+					throw new InvalidOperationException($"Cannot attach child skeleton to parent: {parent} at bone {attachBoneName}. Bone does not exist");
+				}
+				attachBone.AddNode(skeletonNodes[0]);
+
+				if (!_skeletonChildrenAttachBones.ContainsKey(parent))
+				{
+					_skeletonChildrenAttachBones.Add(parent, new List<(string, string)>());
+				}
+				_skeletonChildrenAttachBones[parent].Add((skeleton.ModelBase, attachBoneName));
+			}
+			_skeletons.Add(skeletonName, skeletonNodes);
+			return skeletonNodes;
+		}
+
+		public override void ClearExportData()
         {
             _scene = null;
             _scene = new SceneBuilder();
@@ -686,15 +758,47 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             var transformMatrix = Matrix4x4.CreateScale(instance.Scale)
                 * Matrix4x4.CreateFromYawPitchRoll(
-                    (float)(instance.Rotation.Z * Math.PI)/180,
-                    (float)(instance.Rotation.X * Math.PI)/180,
-                    (float)(instance.Rotation.Y * Math.PI)/180
+                    (float)(instance.Rotation.Z * Math.PI)/180f,
+                    (float)(instance.Rotation.X * Math.PI)/180f,
+                    (float)(instance.Rotation.Y * Math.PI)/180f
                 )
                 * Matrix4x4.CreateTranslation(instance.Position);
             return transformMatrix;
         }
 
-        private string GetMaterialName(Material eqMaterial)
+		private string GetSkeletonName(SkeletonHierarchy skeleton, int? instanceIndex = null)
+        {
+            if (skeleton == null) return null;
+
+            return GetSkeletonName(skeleton.ModelBase, instanceIndex);
+        }
+
+		private string GetSkeletonName(string skeletonModelBase, int? instanceIndex = null)
+        {
+            if (skeletonModelBase == null) return null;
+
+            if (instanceIndex != null)
+            {
+                return $"{skeletonModelBase}_{instanceIndex:000}";
+			}
+            return skeletonModelBase;
+		}
+
+		private NodeBuilder GetRootSkeletonNodeTransformsFromObjectInstance(string name, ObjInstance instance)
+		{
+            var rootNode = new NodeBuilder(name);
+			var instanceTransformMatrix = CreateTransformMatrixForObjectInstance(instance);
+            var zoneInstanceTransformMatrix = instanceTransformMatrix * CorrectedWorldMatrix;
+            Matrix4x4.Decompose(zoneInstanceTransformMatrix, out var scale, out var rotation, out var translation);
+			rotation = Quaternion.Normalize(rotation);
+			rootNode.WithLocalScale(scale)
+                .WithLocalRotation(rotation)
+                .WithLocalTranslation(translation);
+
+            return rootNode;
+		}
+
+		private string GetMaterialName(Material eqMaterial)
         {
             return $"{MaterialList.GetMaterialPrefix(eqMaterial.ShaderType)}{eqMaterial.GetFirstBitmapNameWithoutExtension()}";
         }
@@ -863,54 +967,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 morphTargetElements[i] = 1;
                 track.SetPoint(frameTimes[i], true, morphTargetElements);
             }
-        }
-        private List<NodeBuilder> AddNewSkeleton(SkeletonHierarchy skeleton, string parent = null, string attachBoneName = null)
-        {
-            var skeletonNodes = new List<NodeBuilder>();
-            var duplicateNameDictionary = new Dictionary<string, int>();
-            foreach (var bone in skeleton.Skeleton)
-            {
-                var boneName = bone.CleanedName;
-                if (duplicateNameDictionary.TryGetValue(boneName, out var count))
-                {
-                    skeletonNodes.Add(new NodeBuilder($"{boneName}_{count:00}"));
-                    duplicateNameDictionary[boneName] = ++count;
-                }
-                else
-                {
-                    skeletonNodes.Add(new NodeBuilder(boneName));
-                    duplicateNameDictionary.Add(boneName, 0);
-                }
-            }
-            for (var i = 0; i < skeletonNodes.Count; i++)
-            {
-                var node = skeletonNodes[i];
-                var bone = skeleton.Skeleton[i];
-                bone.Children.ForEach(b => node.AddNode(skeletonNodes[b]));
-            }
-            if (parent != null && attachBoneName != null)
-            {
-                if (!_skeletons.TryGetValue(parent, out var parentSkeleton))
-                {
-                    throw new InvalidOperationException($"Cannot attach child skeleton to parent: {parent}. It does not exist");
-                }
-                var attachBone = parentSkeleton
-                    .Where(n => n.Name.Equals(attachBoneName, StringComparison.InvariantCultureIgnoreCase))
-                    .SingleOrDefault();
-                if (attachBone == null)
-                {
-                    throw new InvalidOperationException($"Cannot attach child skeleton to parent: {parent} at bone {attachBoneName}. Bone does not exist");
-                }
-                attachBone.AddNode(skeletonNodes[0]);
-
-                if (!_skeletonChildrenAttachBones.ContainsKey(parent))
-                {
-                    _skeletonChildrenAttachBones.Add(parent, new List<(string, string)>());
-                }
-                _skeletonChildrenAttachBones[parent].Add((skeleton.ModelBase, attachBoneName));
-            }
-            _skeletons.Add(skeleton.ModelBase, skeletonNodes);
-            return skeletonNodes;
         }
 
         private void ApplyBoneTransformation(NodeBuilder boneNode, DataTypes.BoneTransform boneTransform, 

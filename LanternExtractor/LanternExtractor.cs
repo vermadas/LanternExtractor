@@ -51,7 +51,7 @@ namespace LanternExtractor
             DateTime start = DateTime.Now;
 
 #if DEBUG
- //           args = new string[] { "chardok" };
+            // args = new string[] { "fearplane" };
 #endif
             if (args.Length != 1)
             {

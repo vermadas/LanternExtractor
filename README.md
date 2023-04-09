@@ -48,10 +48,11 @@ The intermediate format supports:
   - Texture mesh
   - Skeletal animations
 
-### Features in this fork
+### Features in this fork for glTF export
 - Connection to a server database
-- Customized player character model exporting to glTF
+- Customized player character model
 - Export zones with doors (no animations)
+- Export zones with lights
 
 ## What’s Next
   - Particle systems

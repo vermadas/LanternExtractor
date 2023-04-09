@@ -10,7 +10,7 @@ namespace LanternExtractor.EQ.Wld.Fragments
     /// Internal name: _LIGHTDEF/_LDEF
     /// Defines color information about a light
     /// </summary>
-    class LightSource : WldFragment
+    public class LightSource : WldFragment
     {
         /// <summary>
         /// Is a placed light source if used in the light.wld and is not if used in the main zone file

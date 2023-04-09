@@ -59,6 +59,19 @@ ExportZoneWithObjects = false
 # (glTF)
 ExportZoneWithDoors = false
 
+# If > 0.0, will export light instances in the exported zone. Uses KHR_lights_punctual extension.
+# Lights get exported with type = point. 
+# Intensity property is EQ client's LightInstance.Radius * LightIntensityMultiplier.
+# The number of lights in a zone can range into the hundreds, and renderers I've tried will have
+# issues if there are too many. Some fail to load correctly (three.js) or only render a subset 
+# of the lights (babylon.js). However, they do import into Blender.
+# Because the handling of light rendering seems to vary depending on the consumer, I've left this
+# intensity multiplier configurable. If importing into Blender, I've found the
+# value 54.35 roughly translates EQ's radius values to Blender's Power (watts).
+# 1.0 seems to work well for others.
+# (glTF)
+LightIntensityMultiplier = 0.0
+
 # !!EXPIRIMENTAL!! Export zone objects with skeletal animations
 # If ExportZoneWithObjects is true and this is also true, objects with
 # skeletal animations will have them included with the zone glTF export. Unfortunately,

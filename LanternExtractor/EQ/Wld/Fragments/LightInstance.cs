@@ -9,7 +9,7 @@ namespace LanternExtractor.EQ.Wld.Fragments
     /// Internal name: None
     /// Defines the position and radius of a light.
     /// </summary>
-    class LightInstance : WldFragment
+    public class LightInstance : WldFragment
     {
         /// <summary>
         /// The light reference (0x1C) this fragment refers to

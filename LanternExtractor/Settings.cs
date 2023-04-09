@@ -88,6 +88,13 @@ namespace LanternExtractor
         public bool ExportZoneWithDoors { get; private set; }
 
 		/// <summary>
+		/// Exports zone glTF with light instances with intensity set to the
+        /// provided value. If set at 0, lights are not exported
+		/// </summary>
+		public float LightIntensityMultiplier { get; private set; }
+        public bool ExportZoneWithLights => LightIntensityMultiplier > 0;
+
+		/// <summary>
 		/// Exports zone with objects with skeletal animations included
 		/// </summary>
 		public bool ExportZoneObjectsWithSkeletalAnimations { get; private set; }
@@ -206,7 +213,12 @@ namespace LanternExtractor
             {
                 ExportZoneWithDoors = Convert.ToBoolean(parsedSettings["ExportZoneWithDoors"]);
             }
-			
+
+			if (parsedSettings.ContainsKey("LightIntensityMultiplier"))
+			{
+				LightIntensityMultiplier = Convert.ToSingle(parsedSettings["LightIntensityMultiplier"]);
+			}
+
 			if (parsedSettings.ContainsKey("ExportZoneObjectsWithSkeletalAnimations"))
 			{
 				ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(parsedSettings["ExportZoneObjectsWithSkeletalAnimations"]);

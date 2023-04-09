@@ -13,7 +13,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 {
     public static class ActorGltfExporter
     {
-        public static void ExportActors(WldFile wldFile, Settings settings, ILogger logger)
+		private const float ObjInstanceYAxisThreshold = -1000f;
+
+		public static void ExportActors(WldFile wldFile, Settings settings, ILogger logger)
         {
             // For a zone wld, we ignore actors and just export all meshes
             if (wldFile.WldType == WldType.Zone)
@@ -26,7 +28,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 ExportSky(settings, wldFile, logger);
             }
-
 
             foreach (var actor in wldFile.GetFragmentsOfType<Actor>())
             {
@@ -89,11 +90,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var objects = new List<ObjInstance>();
             var shortName = wldFileZone.ShortName;
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-
-            if (settings.ExportZoneWithObjects || settings.ExportZoneWithDoors)
+			var rootFolder = wldFileZone.RootFolder;
+			if (settings.ExportZoneWithObjects || settings.ExportZoneWithDoors)
             {
-                var rootFolder = wldFileZone.RootFolder;
-
                 // Get object instances within this zone file to map up and instantiate later
                 var zoneObjectsFileInArchive =
                     wldFileZone.S3dArchiveReference.GetFile("objects" + LanternStrings.WldFormatExtension);
@@ -135,6 +134,33 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
             }
 
+			var lightInstances = new List<LightInstance>();
+			if (settings.ExportZoneWithLights)
+            {
+				if (wldFileZone.WldFileToInject != null) // optional kunark _lit wld exists
+				{
+					var kunarkLitPath = wldFileZone.BasePath.Replace(".s3d", "_lit.s3d");
+				    var s3dArchiveLit = new PfsArchive(kunarkLitPath, logger);
+                    s3dArchiveLit.Initialize();
+                    var litWldFileInArchive = s3dArchiveLit.GetFile(shortName + "_lit.wld");
+
+					var lightsWldFile =
+						new WldFileLights(litWldFileInArchive, shortName, WldType.Lights, logger, settings, wldFileZone.WldFileToInject);
+					lightsWldFile.Initialize(rootFolder, false);
+                    lightInstances.AddRange(lightsWldFile.GetFragmentsOfType<LightInstance>());
+				}
+
+				var lightsFileInArchive = wldFileZone.S3dArchiveReference.GetFile("lights" + LanternStrings.WldFormatExtension);
+
+				if (lightsFileInArchive != null)
+				{
+					var lightsWldFile =
+						new WldFileLights(lightsFileInArchive, shortName, WldType.Lights, logger, settings, wldFileZone.WldFileToInject);
+					lightsWldFile.Initialize(rootFolder, false);
+                    lightInstances.AddRange(lightsWldFile.GetFragmentsOfType<LightInstance>());
+				}
+			}
+
             var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
             var textureImageFolder = $"{wldFileZone.GetExportFolderForWldType()}Textures/";
             gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
@@ -161,8 +187,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var instanceIndex = 0;
                     foreach (var instance in instances)
                     {
-                        if (instance.Position.Z < short.MinValue) continue;
-                        // TODO: this could be more nuanced, I think this still exports trees below the zone floor
+                        if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
 
                         gltfWriter.AddFragmentData(
                             mesh: objMesh,
@@ -185,9 +210,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                     foreach (var instance in instances)
                     {
-                        if (instance.Position.Z < short.MinValue) continue;
+						if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
 
-                        if (!addedMeshOnce ||
+						if (!addedMeshOnce ||
                             (settings.ExportGltfVertexColors
                              && instance.Colors?.Colors != null
                              && instance.Colors.Colors.Any()))
@@ -228,6 +253,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                         instanceIndex++;
                     }
                 }
+            }
+
+            if (lightInstances.Any())
+            {
+                gltfWriter.AddLightInstances(lightInstances, settings.LightIntensityMultiplier);
             }
 
             var exportFilePath = $"{wldFileZone.GetExportFolderForWldType()}{wldFileZone.ZoneShortname}.gltf";

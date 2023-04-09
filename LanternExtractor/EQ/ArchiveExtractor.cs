@@ -176,7 +176,7 @@ namespace LanternExtractor.EQ
             var wldFile = new WldFileZone(wldFileInArchive, shortName, WldType.Zone, logger, settings, wldFileLit);
 
             // If we're trying to merge zone objects, inject here rather than pass down the chain to pull out later
-            if (settings.ExportZoneWithObjects)
+            if (settings.ExportZoneWithObjects || settings.ExportZoneWithDoors || settings.ExportZoneWithLights)
             {
                 wldFile.BasePath = path;
                 wldFile.S3dArchiveReference = s3dArchive;

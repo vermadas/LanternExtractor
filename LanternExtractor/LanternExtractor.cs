@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data.Entity.Infrastructure.Interception;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -51,7 +50,7 @@ namespace LanternExtractor
             DateTime start = DateTime.Now;
 
 #if DEBUG
-            // args = new string[] { "fearplane" };
+//            args = new string[] { "timorous" };
 #endif
             if (args.Length != 1)
             {

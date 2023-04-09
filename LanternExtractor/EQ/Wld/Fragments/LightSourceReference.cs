@@ -8,7 +8,7 @@ namespace LanternExtractor.EQ.Wld.Fragments
     /// Internal name: None
     /// References a LightSource fragment.
     /// </summary>
-    class LightSourceReference : WldFragment
+    public class LightSourceReference : WldFragment
     {
         /// <summary>
         /// The light source (0x1B) fragment reference

@@ -170,8 +170,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {"pos", "Default"},
             {"drf", "Pose"}
         };
+        private static readonly float ZoneScaleMultiplier = 0.1f;
         private static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
-        private static readonly Matrix4x4 CorrectedWorldMatrix = MirrorXAxisMatrix * Matrix4x4.CreateScale(0.1f);
+        private static readonly Matrix4x4 CorrectedWorldMatrix = MirrorXAxisMatrix * Matrix4x4.CreateScale(ZoneScaleMultiplier);
         private static readonly Matrix4x4 CorrectedSingularActorMatrix = Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
 		#endregion
 
@@ -181,8 +182,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<string, IMeshBuilder<MaterialBuilder>> _sharedMeshes;
         private IDictionary<string, List<NodeBuilder>> _skeletons;
         private IDictionary<string, List<(string, string)>> _skeletonChildrenAttachBones;
+        private IEnumerable<IGrouping<UniqueLight, LightInstance>> _lightGroups;
         private bool _separateTwoFacedTriangles;
         private PlayerCharacterModel _playerCharacterModel;
+        private float _lightIntensityMultiplier;
 
         public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, bool separateTwoFacedTriangles = false, PlayerCharacterModel playerCharacterModel = null)
         {
@@ -467,6 +470,57 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
 
+        public void AddLightInstances(IEnumerable<LightInstance> lightInstances, float lightIntensityMultiplier)
+        {
+            var groupedLightInstances = lightInstances.GroupBy(i => new UniqueLight(i));
+            _lightGroups = groupedLightInstances;
+            _lightIntensityMultiplier = lightIntensityMultiplier;
+			/* https://github.com/vpenades/SharpGLTF/issues/168
+            foreach (var uniqueLightGroups in groupedLightInstances)
+            {
+                var uniqueLight = uniqueLightGroups.Key;
+                var light = new LightBuilder.Point()
+                {
+                    Color = uniqueLight.Color,
+                    Intensity = uniqueLight.Radius * lightIntensityMultiplier
+                    // Range = uniqueLight.Radius * ZoneScaleMultiplier
+                };
+                foreach (var lightInstance in uniqueLightGroups)
+                {
+                    var position = lightInstance.Position.ToVector3(swapYandZ: true);
+                    var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix;
+                    Matrix4x4.Decompose(translationMatrix, out _, out _, out var translation);
+                    _scene.AddLight(light, new AffineTransform(Quaternion.Identity, translation));
+                }
+            }
+            */
+		}
+
+		// https://github.com/vpenades/SharpGLTF/issues/168
+		private void AddLightInstancesWorkaround(SharpGLTF.Schema2.ModelRoot modelRoot)
+        {
+			foreach (var uniqueLightGroups in _lightGroups)
+			{
+				var uniqueLight = uniqueLightGroups.Key;
+                var light = modelRoot.CreatePunctualLight(SharpGLTF.Schema2.PunctualLightType.Point);
+                light.Color = uniqueLight.Color;
+                light.Intensity = uniqueLight.Radius * _lightIntensityMultiplier;
+                // light.Range = uniqueLight.Radius * ZoneScaleMultiplier;
+
+				foreach (var lightInstance in uniqueLightGroups)
+				{
+					var position = lightInstance.Position.ToVector3(swapYandZ: true);
+					var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix;
+					Matrix4x4.Decompose(translationMatrix, out _, out _, out var translation);
+                    var lightName = lightInstance.LightReference?.LightSource?.Name;
+                    var node = modelRoot.DefaultScene.CreateNode(lightName != null ? lightName.Split('_')[0] : "");
+                    // node.WithTranslation(translation) makes VS complain for some reason
+                    node.LocalTransform = node.LocalTransform.WithTranslation(translation);
+                    node.PunctualLight = light;
+				}
+			}
+		}
+
         public void AddCombinedMeshToScene(
             bool isZoneMesh = false, 
             string meshName = null, 
@@ -538,13 +592,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public void WriteAssetToFile(string fileName, bool useExistingImages, bool isZone = false, string skeletonModelBase = null, bool cleanupTexturesFolder = false)
         {
             AddCombinedMeshToScene(false, null, skeletonModelBase);
-            /* if (isZone)
-			{
-                _scene.ApplyBasisTransform(CorrectedWorldMatrix);
-			} */
 
 			var outputFilePath = FixFilePath(fileName);
             var model = _scene.ToGltf2();
+
+            if (_lightGroups != null && _lightGroups.Any())
+            {
+                AddLightInstancesWorkaround(model);
+            }
             if (_exportFormat == GltfExportFormat.GlTF)
             {
                 if (!useExistingImages)
@@ -719,7 +774,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 .WithDoubleSide(false)
                 .WithMetallicRoughnessShader()
                 .WithChannelParam(KnownChannel.MetallicRoughness, KnownProperty.RoughnessFactor, MaterialRoughness)
-                .WithChannelParam(KnownChannel.MetallicRoughness, KnownProperty.MetallicFactor, 0f);
+                .WithChannelParam(KnownChannel.MetallicRoughness, KnownProperty.MetallicFactor, 0f)
+                .WithChannelParam(KnownChannel.SpecularFactor, KnownProperty.SpecularFactor, 0f); // Helps models look better in some renderers.
             // If we use the method below, the image name is not retained
             //    .WithChannelImage(KnownChannel.BaseColor, $"{textureImageFolder}{eqMaterial.GetFirstBitmapExportFilename()}");
             gltfMaterial.UseChannel(KnownChannel.BaseColor)
@@ -1226,6 +1282,25 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 		}
 	}
+
+    public struct UniqueLight
+    {
+        public float Radius { get; private set; }
+        public Vector3 Color { get; private set; }
+        public UniqueLight(LightInstance lightInstance)
+        {
+            Radius = lightInstance.Radius;
+            var color = lightInstance.LightReference?.LightSource?.Color;
+            if (color != null)
+            {
+                Color = new Vector3(color.Value.r, color.Value.g, color.Value.b);
+            }
+            else
+            {
+                Color = new Vector3(1, 1, 1);
+            }
+        }
+    }
 	static class ImageAlphaConverter
     {
         public static string AddAlphaToImage(string filePath, ShaderType shaderType)

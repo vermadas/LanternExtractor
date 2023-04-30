@@ -13,6 +13,7 @@ namespace LanternExtractor.EQ
         // before tasks are spun up.
         public static WldFileCharacters CharacterWld { get; private set; }
         public static SqliteDatabaseConnector ServerDatabaseConnector { get; private set; }
+        public static NpcDatabaseToClientTranslator NpcDatabaseToClientTranslator { get; private set; }
 
         public static void InitCharacterWld(PfsArchive pfsArchive, PfsFile wldFile, string rootFolder, string zoneName, 
             WldType type, ILogger logger, Settings settings, List<WldFile> wldFilesToInject = null)
@@ -26,6 +27,12 @@ namespace LanternExtractor.EQ
         public static void InitServerDatabaseConnector(Settings settings)
         {
             ServerDatabaseConnector = new SqliteDatabaseConnector(settings);
+        }
+
+        public static void InitNpcDatabaseToClientTranslator(string pathToRaceDataCsv)
+        {
+            NpcDatabaseToClientTranslator = new NpcDatabaseToClientTranslator();
+            NpcDatabaseToClientTranslator.InitFromRaceDataCsv(pathToRaceDataCsv);
         }
     }
 }

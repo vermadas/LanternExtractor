@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using LanternExtractor.EQ.Pfs;
 using LanternExtractor.EQ.Sound;
 using LanternExtractor.EQ.Wld;
@@ -149,7 +148,100 @@ namespace LanternExtractor.EQ
             }
         }
 
-        private static void ExtractArchiveZone(string path, string rootFolder, ILogger logger, Settings settings,
+		public static void InitWldsForPlayerCharacterGltfExport(PlayerCharacterModel pcEquipment, string rootFolder, ILogger logger, Settings settings, out WldFileEquipment mainWldEqFile)
+		{
+			mainWldEqFile = null;
+			if (!pcEquipment.Validate(out var errorMessage))
+			{
+				Console.WriteLine($"Cannot export player character - {errorMessage}");
+				return;
+			}
+
+			var actorName = pcEquipment.RaceGender;
+			var includeList = GlobalReference.CharacterWld.GetActorImageNames(actorName).ToList();
+			var exportFolder = Path.Combine(rootFolder, actorName, "Textures");
+			WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList, true);
+			includeList.Clear();
+			if (!string.IsNullOrEmpty(pcEquipment.Primary_ID) || !string.IsNullOrEmpty(pcEquipment.Secondary_ID) || pcEquipment.Head.Velious)
+			{
+				mainWldEqFile = InitCombinedEquipmentWld(logger, settings, actorName, rootFolder);
+				if (pcEquipment.Primary_ID != null)
+				{
+					includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Primary_ID));
+				}
+				if (pcEquipment.Secondary_ID != null)
+				{
+					includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Secondary_ID));
+				}
+				if (pcEquipment.Head.Velious)
+				{
+					includeList.AddRange(mainWldEqFile.GetActorImageNames(PlayerCharacterModel.RaceGenderToVeliousHelmModel[pcEquipment.RaceGender]));
+				}
+				WriteWldTextures(mainWldEqFile, exportFolder, logger, includeList, true);
+			}
+		}
+
+        public static WldFileEquipment InitWldsForZoneCharacterVariationExport(IEnumerable<string> globalCharacterActors, IEnumerable<string> heldEquipmentIds,
+            string rootFolder, string zoneName, ILogger logger, Settings settings)
+        {
+            WldFileEquipment wldEqFile = null;
+            var includeList = new List<string>();
+			var exportFolder = Path.Combine(rootFolder, zoneName, "Characters", "Textures");
+			if (globalCharacterActors.Any())
+            {
+				globalCharacterActors.ToList()
+					.ForEach(a => includeList.AddRange(GlobalReference.CharacterWld.GetActorImageNames(a)));
+				WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList.Distinct().ToList(), true);
+                includeList.Clear();
+			}
+
+            if (heldEquipmentIds.Any())
+            {
+				wldEqFile = InitCombinedEquipmentWld(logger, settings, zoneName, rootFolder);
+                heldEquipmentIds.ToList().ForEach(e => includeList.AddRange(wldEqFile.GetActorImageNames(e)));
+				WriteWldTextures(wldEqFile, exportFolder, logger, includeList.Distinct().ToList(), true);
+			}
+
+            return wldEqFile;
+        }
+
+		private static WldFileEquipment InitCombinedEquipmentWld(ILogger logger, Settings settings, string zoneName, string rootFolder)
+		{
+			WldFileEquipment mainWldEqFile = null;
+			WldFileEquipment injectedWldEqFile = null;
+			var eqFiles = new string[] { "gequip2", "gequip" };
+			for (int i = 0; i < 2; i++)
+			{
+				var eqFile = eqFiles[i];
+				var eqFilePath = Path.Combine(settings.EverQuestDirectory, $"{eqFile}.s3d");
+				var eqS3dArchive = new PfsArchive(eqFilePath, logger);
+				if (!eqS3dArchive.Initialize())
+				{
+					logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + eqFilePath);
+					return null;
+				}
+				var eqWldFileName = eqFile + LanternStrings.WldFormatExtension;
+				var eqWldFileInArchive = eqS3dArchive.GetFile(eqWldFileName);
+				WldFileEquipment wldEqFile;
+				if (i == 0)
+				{
+					wldEqFile = new WldFileEquipment(eqWldFileInArchive, zoneName, WldType.Equipment, logger, settings);
+					injectedWldEqFile = wldEqFile;
+				}
+				else
+				{
+					wldEqFile = new WldFileEquipment(eqWldFileInArchive, zoneName, WldType.Equipment, logger, settings, new List<WldFile>() { injectedWldEqFile });
+					mainWldEqFile = wldEqFile;
+				}
+				wldEqFile.Initialize(rootFolder, false);
+				eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
+				wldEqFile.S3dArchiveReference = eqS3dArchive;
+			}
+
+			return mainWldEqFile;
+		}
+
+		private static void ExtractArchiveZone(string path, string rootFolder, ILogger logger, Settings settings,
             string shortName, PfsFile wldFileInArchive, PfsArchive s3dArchive)
         {
             // Some Kunark zones have a "_lit" which needs to be injected into the main zone file

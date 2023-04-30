@@ -1,5 +1,4 @@
-﻿using LanternExtractor.EQ.Pfs;
-using LanternExtractor.EQ.Wld.Fragments;
+﻿using LanternExtractor.EQ.Wld.Fragments;
 using LanternExtractor.EQ.Wld.Helpers;
 using LanternExtractor.Infrastructure.Logger;
 using System;
@@ -10,73 +9,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using DColor = System.Drawing.Color;
 using static LanternExtractor.EQ.Wld.Exporters.GltfWriter;
-using LanternExtractor.EQ.Wld.DataTypes;
 
 namespace LanternExtractor.EQ.Wld.Exporters
 {
     public static class PlayerCharacterGltfExporter
-    {
-        public static void InitWldsForPlayerCharacterGltfExport(PlayerCharacterModel pcEquipment, string rootFolder, ILogger logger, Settings settings, out WldFileEquipment mainWldEqFile)
-        {
-            mainWldEqFile = null;
-            if (!pcEquipment.Validate(out var errorMessage))
-            {
-                Console.WriteLine($"Cannot export player character - {errorMessage}");
-                return;
-            }
-
-            var actorName = pcEquipment.RaceGender;
-            var includeList = GlobalReference.CharacterWld.GetActorImageNames(actorName).ToList();
-            var exportFolder = Path.Combine(rootFolder, actorName, "Textures");
-            ArchiveExtractor.WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList, true);
-            WldFileEquipment injectedWldEqFile = null;
-            includeList.Clear();
-            if (!string.IsNullOrEmpty(pcEquipment.Primary_ID) || !string.IsNullOrEmpty(pcEquipment.Secondary_ID) || pcEquipment.Head.Velious)
-            {
-                var eqFiles = new string[] { "gequip2", "gequip" };
-                for (int i = 0; i < 2; i++)
-                {
-                    var eqFile = eqFiles[i];
-                    var eqFilePath = Path.Combine(settings.EverQuestDirectory, $"{eqFile}.s3d");
-                    var eqS3dArchive = new PfsArchive(eqFilePath, logger);
-                    if (!eqS3dArchive.Initialize())
-                    {
-                        logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + eqFilePath);
-                        return;
-                    }
-                    var eqWldFileName = eqFile + LanternStrings.WldFormatExtension;
-                    var eqWldFileInArchive = eqS3dArchive.GetFile(eqWldFileName);
-                    WldFileEquipment wldEqFile;
-                    if (i == 0)
-                    {
-                        wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings);
-                        injectedWldEqFile = wldEqFile;
-                    }
-                    else
-                    {
-                        wldEqFile = new WldFileEquipment(eqWldFileInArchive, actorName, WldType.Equipment, logger, settings, new List<WldFile>() { injectedWldEqFile });
-                        mainWldEqFile = wldEqFile;
-                    }
-                    wldEqFile.Initialize(rootFolder, false);
-                    eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
-                    wldEqFile.S3dArchiveReference = eqS3dArchive;
-                }
-                if (pcEquipment.Primary_ID != null)
-                {
-                    includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Primary_ID));
-                }
-                if (pcEquipment.Secondary_ID != null)
-                {
-                    includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Secondary_ID));
-                }
-                if (pcEquipment.Head.Velious)
-                {
-                    includeList.AddRange(mainWldEqFile.GetActorImageNames(PlayerCharacterModel.RaceGenderToVeliousHelmModel[pcEquipment.RaceGender]));
-                }
-                ArchiveExtractor.WriteWldTextures(mainWldEqFile, exportFolder, logger, includeList, true);
-            }
-        }
-
+    { 
         public static void ExportPlayerCharacter(PlayerCharacterModel pcEquipment, WldFileCharacters wldChrFile, WldFileEquipment wldEqFile,
             ILogger logger, Settings settings)
         {
@@ -90,80 +27,59 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (skeleton == null) return;
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles, pcEquipment);
+            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
 
-            var allMeshes = skeleton.Meshes.Union(skeleton.SecondaryMeshes);
-            var bodyMeshName = pcEquipment.IsChestRobe() ? $"{actorName}01" : actorName;
-            bodyMeshName = $"{bodyMeshName}_DMSPRITEDEF";
-            if (pcEquipment.Head.Material == 7)
-            {
-                pcEquipment.Head.Material = 2; // Kunark chain
-            }
-            else if (pcEquipment.RequiresMeshModificationsForVeliousHelm() && pcEquipment.RaceGender != "ERM")
-            {
-                pcEquipment.Head.Material = 3;
-            }
-            else if (pcEquipment.Head.Material == 4 || pcEquipment.Head.Material > 16 || pcEquipment.Head.Velious) // Monk or Velious
-            {
-                pcEquipment.Head.Material = 0;
-            }
-            var headMeshName = $"{actorName}HE{pcEquipment.Head.Material:00}";
-            headMeshName = $"{headMeshName}_DMSPRITEDEF";
-            var bodyMesh = allMeshes.Where(m => m.Name.Equals(bodyMeshName, StringComparison.InvariantCultureIgnoreCase)).Single();
-            var headMesh = allMeshes.Where(m => m.Name.Equals(headMeshName, StringComparison.InvariantCultureIgnoreCase)).Single();
-            WldFragment primaryMeshOrSkeleton = null;
-            WldFragment secondaryMeshOrSkeleton = null;
-            WldFragment veliousHelm = null;
-            var veliousHelmModelId = pcEquipment.Head.Velious ? PlayerCharacterModel.RaceGenderToVeliousHelmModel[pcEquipment.RaceGender] : null;
+			pcEquipment.FixHelmMaterial();
 
-            var wldFragmentsWithMaterialLists = new List<WldFragment>() { bodyMesh, headMesh };
-            if (wldEqFile != null)
-            {
-                primaryMeshOrSkeleton = GetMeshOrSkeletonForPlayerCharacterHeldEquipment(pcEquipment.Primary_ID, wldEqFile, logger);
-                wldFragmentsWithMaterialLists.Add(primaryMeshOrSkeleton);
-                secondaryMeshOrSkeleton = GetMeshOrSkeletonForPlayerCharacterHeldEquipment(pcEquipment.Secondary_ID, wldEqFile, logger);
-                wldFragmentsWithMaterialLists.Add(secondaryMeshOrSkeleton);
-                veliousHelm = GetMeshOrSkeletonForPlayerCharacterHeldEquipment(veliousHelmModelId, wldEqFile, logger);
-                wldFragmentsWithMaterialLists.Add(veliousHelm);
-            }
+			var exportFolder = Path.Combine(wldChrFile.RootExportFolder, actorName);
 
-            var materialLists = ActorGltfExporter.GatherMaterialLists(wldFragmentsWithMaterialLists.Where(m => m != null).ToList());
-            var exportFolder = Path.Combine(wldChrFile.RootExportFolder, actorName);
-            gltfWriter.GenerateGltfMaterials(materialLists, Path.Combine(exportFolder, "Textures"), true);
+            AddMeshDataToGltfWriter(pcEquipment, gltfWriter, wldEqFile, skeleton,
+                exportFolder, logger, settings);
 
-            MeshExportHelper.ShiftMeshVertices(bodyMesh, skeleton, true, "pos", 0);
-            gltfWriter.AddFragmentData(bodyMesh, skeleton);
-            MeshExportHelper.ShiftMeshVertices(headMesh, skeleton, true, "pos", 0);
-            gltfWriter.AddFragmentData(headMesh, skeleton);
-
-            var boneIndexOffset = skeleton.Skeleton.Count;
-
-            AddPlayerCharacterHeldEquipmentToGltfWriter(primaryMeshOrSkeleton, pcEquipment.Primary_ID, skeleton,
-                "r_point", gltfWriter, ref boneIndexOffset);
-            var secondaryAttachBone = IsShield(pcEquipment.Secondary_ID) ? "shield_point" : "l_point";
-            AddPlayerCharacterHeldEquipmentToGltfWriter(secondaryMeshOrSkeleton, pcEquipment.Secondary_ID, skeleton,
-                secondaryAttachBone, gltfWriter, ref boneIndexOffset);
-            AddPlayerCharacterHeldEquipmentToGltfWriter(veliousHelm, veliousHelmModelId, skeleton,
-                "he", gltfWriter, ref boneIndexOffset);
-
-            gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", true, true);
-
-            if (settings.ExportAllAnimationFrames)
-            {
-                foreach (var animationKey in skeleton.Animations.Keys
-                    .OrderBy(k => k, new AnimationKeyComparer()))
-                {
-                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, true, false);
-                }
-            }
-
-            var exportFilePath = Path.Combine(exportFolder, $"{FragmentNameCleaner.CleanName(skeleton)}.gltf");
-            gltfWriter.WriteAssetToFile(exportFilePath, false, false, skeleton.ModelBase, true);
+			var exportFilePath = Path.Combine(exportFolder, $"{FragmentNameCleaner.CleanName(skeleton)}.gltf");
+            gltfWriter.WriteAssetToFile(exportFilePath, false, skeleton.ModelBase, true);
 
             var jsonOutFilePath = Path.Combine(exportFolder, $"PcEquip_{DateTime.Now:yyyyMMddhhmmss}.json");
             var serializerOptions = new JsonSerializerOptions() { WriteIndented = true };
             serializerOptions.Converters.Add(new ColorJsonConverter());
             File.WriteAllText(jsonOutFilePath, JsonSerializer.Serialize(pcEquipment, serializerOptions));
+        }
+
+        public static void ExportPlayerCharacterVariationsForActor(string actorName, 
+            IEnumerable<(string, PlayerCharacterModel)> pcVariations, WldFileCharacters wldChrFile,
+            WldFileEquipment wldEqFile, string zoneName, ILogger logger, Settings settings)
+        {
+			var lookupName = $"{actorName}_ACTORDEF";
+
+			var actor = wldChrFile.GetFragmentByNameIncludingInjectedWlds<Actor>(lookupName);
+
+			var skeleton = actor?.SkeletonReference?.SkeletonHierarchy;
+
+            if (skeleton == null) return;
+
+            var savedGltfWriters = new Dictionary<PlayerCharacterModel, GltfWriter>(new CharacterVariationComparer());
+            var exportFolder = Path.Combine(wldChrFile.RootExportFolder, zoneName, "Characters");
+			foreach (var pcVariation in pcVariations)
+            {
+                var npcName = pcVariation.Item1;
+                var pcModel = pcVariation.Item2;
+                pcModel.FixHelmMaterial();
+				var exportFilePath = Path.Combine(exportFolder, $"{npcName}.gltf");
+
+				if (savedGltfWriters.TryGetValue(pcModel, out var gltfWriter))
+                {
+                    gltfWriter.WriteAssetToFile(exportFilePath, true);
+                    continue;
+                }
+				var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
+				gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+
+				AddMeshDataToGltfWriter(pcModel, gltfWriter, wldEqFile, skeleton,
+	                exportFolder, logger, settings);
+
+                gltfWriter.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
+                savedGltfWriters.Add(pcModel, gltfWriter);
+			}
         }
 
         public static void AddPcEquipmentClientDataFromDatabase(PlayerCharacterModel pcCharacterModel)
@@ -211,133 +127,84 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
 
-
-        private static WldFragment GetMeshOrSkeletonForPlayerCharacterHeldEquipment(string modelId, WldFileEquipment wldEqFile, ILogger logger)
+        private static void AddMeshDataToGltfWriter(PlayerCharacterModel pcEquipment, GltfWriter gltfWriter, 
+            WldFileEquipment wldEqFile, SkeletonHierarchy skeleton,
+			string exportFolder, ILogger logger, Settings settings)
         {
-            if (string.IsNullOrEmpty(modelId)) return null;
+            //var actorName = pcEquipment.RaceGender;
+			GetBodyAndHeadMeshes(pcEquipment, skeleton, out var bodyMesh, out var headMesh);
 
-            WldFragment meshOrSkeleton = null;
-            var actorLookupName = $"{modelId}_ACTORDEF";
-            var actor = wldEqFile.GetFragmentByNameIncludingInjectedWlds<Actor>(actorLookupName);
-            if (actor == null)
-            {
-                if (MissingSkeletalActors.Contains(modelId, StringComparer.InvariantCultureIgnoreCase))
-                {
-                    meshOrSkeleton = wldEqFile.GetFragmentByNameIncludingInjectedWlds<SkeletonHierarchy>($"{modelId}_HS_DEF");
-                }
-                else
-                {
-                    logger.LogError($"Player character held equipment model '{actorLookupName}' not found!");
-                    return null;
-                }
-            }
-            else if (actor.ActorType == ActorType.Static)
-            {
-                meshOrSkeleton = actor.MeshReference?.Mesh;
-            }
-            else if (actor.ActorType == ActorType.Skeletal)
-            {
-                meshOrSkeleton = actor.SkeletonReference?.SkeletonHierarchy;
-            }
+			WldFragment primaryMeshOrSkeleton = null;
+			WldFragment secondaryMeshOrSkeleton = null;
+			WldFragment veliousHelm = null;
+			var veliousHelmModelId = pcEquipment.Head.Velious ? PlayerCharacterModel.RaceGenderToVeliousHelmModel[pcEquipment.RaceGender] : null;
 
-            return meshOrSkeleton;
-        }
+			var wldFragmentsWithMaterialLists = new List<WldFragment>() { bodyMesh, headMesh };
+			if (wldEqFile != null)
+			{
+				primaryMeshOrSkeleton = GltfCharacterHeldEquipmentHelper.GetMeshOrSkeletonForCharacterHeldEquipment
+					(pcEquipment.Primary_ID, wldEqFile, logger);
+				wldFragmentsWithMaterialLists.Add(primaryMeshOrSkeleton);
+				secondaryMeshOrSkeleton = GltfCharacterHeldEquipmentHelper.GetMeshOrSkeletonForCharacterHeldEquipment
+					(pcEquipment.Secondary_ID, wldEqFile, logger);
+				wldFragmentsWithMaterialLists.Add(secondaryMeshOrSkeleton);
+				veliousHelm = GltfCharacterHeldEquipmentHelper.GetMeshOrSkeletonForCharacterHeldEquipment
+					(veliousHelmModelId, wldEqFile, logger);
+				wldFragmentsWithMaterialLists.Add(veliousHelm);
+			}
 
-        private static void AddPlayerCharacterHeldEquipmentToGltfWriter(WldFragment meshOrSkeleton, string modelId,
-            SkeletonHierarchy pcSkeleton, string attachBoneKey, GltfWriter gltfWriter, ref int boneIndexOffset)
-        {
-            if (meshOrSkeleton == null) return;
+			var materialLists = ActorGltfExporter.GatherMaterialLists(wldFragmentsWithMaterialLists.Where(m => m != null).ToList());
 
-            var boneIndex = pcSkeleton.BoneMappingClean.Where(kv => kv.Value == attachBoneKey).Single().Key;
-            if (meshOrSkeleton is Mesh)
-            {
-                MeshExportHelper.ShiftMeshVertices((Mesh)meshOrSkeleton, pcSkeleton, true, "pos", 0, boneIndex, true);
-                gltfWriter.AddFragmentData(
-                    mesh: (Mesh)meshOrSkeleton,
-                    generationMode: ModelGenerationMode.Combine,
-                    isSkinned: true,
-                    singularBoneIndex: boneIndex);
+			gltfWriter.GenerateGltfMaterials(materialLists, Path.Combine(exportFolder, "Textures"), true);
 
-                return;
-            }
+			var originalVertices = MeshExportHelper.ShiftMeshVertices(bodyMesh, skeleton, true, "pos", 0);
+			gltfWriter.AddFragmentData(bodyMesh, skeleton, -1, pcEquipment);
+            bodyMesh.Vertices = originalVertices;
+			originalVertices = MeshExportHelper.ShiftMeshVertices(headMesh, skeleton, true, "pos", 0);
+			gltfWriter.AddFragmentData(headMesh, skeleton, -1, pcEquipment);
+            headMesh.Vertices = originalVertices;
 
-            var eqSkeleton = (SkeletonHierarchy)meshOrSkeleton;
-            if (string.Equals(modelId, "it156", StringComparison.InvariantCultureIgnoreCase))
-            {
-                FixClericEpicPosScale(eqSkeleton);
-            }
-            if (SkeletalActorsNotUsingBoneMeshes.Contains(modelId, StringComparer.InvariantCultureIgnoreCase))
-            {
-                foreach (var mesh in eqSkeleton.Meshes)
-                {
-                    if (mesh != null)
-                    {
-                        MeshExportHelper.ShiftMeshVerticesMultipleSkeletons(
-                            mesh,
-                            new List<SkeletonHierarchy>() { eqSkeleton, pcSkeleton },
-                            new List<bool>() { false, true },
-                            "pos",
-                            0,
-                            new List<int>() { -1, boneIndex },
-                            true);
-                        gltfWriter.AddFragmentData(mesh, eqSkeleton, boneIndexOffset, pcSkeleton.ModelBase, attachBoneKey, null, true);
-                    }
-                }
-            }
-            else
-            {
-                for (int i = 0; i < eqSkeleton.Skeleton.Count; i++)
-                {
-                    var bone = eqSkeleton.Skeleton[i];
-                    var mesh = bone?.MeshReference?.Mesh;
-                    if (mesh != null)
-                    {
-                        MeshExportHelper.ShiftMeshVerticesMultipleSkeletons(
-                            mesh,
-                            new List<SkeletonHierarchy>() { eqSkeleton, pcSkeleton },
-                            new List<bool>() { false, true },
-                            "pos",
-                            0,
-                            new List<int>() { i, boneIndex },
-                            true);
+			var boneIndexOffset = skeleton.Skeleton.Count;
 
-                        gltfWriter.AddFragmentData(mesh, eqSkeleton, i + boneIndexOffset, pcSkeleton.ModelBase, attachBoneKey);
-                    }
-                }
-            }
+			GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
+				(primaryMeshOrSkeleton, pcEquipment.Primary_ID, skeleton, "r_point", gltfWriter, ref boneIndexOffset);
+			var secondaryAttachBone = GltfCharacterHeldEquipmentHelper.IsShield(pcEquipment.Secondary_ID) ? "shield_point" : "l_point";
+			GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
+				(secondaryMeshOrSkeleton, pcEquipment.Secondary_ID, skeleton, secondaryAttachBone, gltfWriter, ref boneIndexOffset);
+			GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
+				(veliousHelm, veliousHelmModelId, skeleton, "he", gltfWriter, ref boneIndexOffset);
 
-            gltfWriter.ApplyAnimationToSkeleton(eqSkeleton, "pos", false, true);
-            boneIndexOffset += eqSkeleton.Skeleton.Count;
-        }
+			gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", true, true);
 
-        private static bool IsShield(string itemId)
-        {
-            if (string.IsNullOrEmpty(itemId)) return false;
+			if (settings.ExportAllAnimationFrames)
+			{
+				foreach (var animationKey in skeleton.Animations.Keys
+					.OrderBy(k => k, new AnimationKeyComparer()))
+				{
+					gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, true, false);
+				}
+			}
+		}
 
-            var numericItem = int.Parse(itemId.Substring(2));
-            return numericItem >= 200 && numericItem < 300;
-        }
+		private static void GetBodyAndHeadMeshes(PlayerCharacterModel pcEquipment, SkeletonHierarchy skeleton,
+			out Mesh bodyMesh, out Mesh headMesh)
+		{
+			var actorName = pcEquipment.RaceGender;
+			var allMeshes = skeleton.Meshes.Union(skeleton.SecondaryMeshes);
+			var bodyMeshName = pcEquipment.IsChestRobe() ? $"{actorName}01" : actorName;
+			bodyMeshName = $"{bodyMeshName}_DMSPRITEDEF";
 
-        private static void FixClericEpicPosScale(SkeletonHierarchy skeleton)
-        {
-            var posAnimation = skeleton.Animations["pos"];
-            var tracks = posAnimation.TracksCleaned;
-            var bone0 = skeleton.Skeleton[0];
-            var bone1 = skeleton.Skeleton[1];
-            var trackDef = tracks[bone0.CleanedName].TrackDefFragment;
-            trackDef.Frames[0].Scale = 1f;
-            trackDef = tracks[bone1.CleanedName].TrackDefFragment;
-            trackDef.Frames[0].Scale = 1f;
-        }
+			var headMeshName = $"{actorName}HE{pcEquipment.Head.Material:00}";
+			headMeshName = $"{headMeshName}_DMSPRITEDEF";
+			bodyMesh = allMeshes.Where(m => m.Name.Equals(bodyMeshName, StringComparison.InvariantCultureIgnoreCase)).Single();
+			headMesh = allMeshes.Where(m => m.Name.Equals(headMeshName, StringComparison.InvariantCultureIgnoreCase)).Single();
+		}
 
-        private static readonly string VeliousHelmIdFile = "IT240";
-
-        private static readonly ISet<string> SkeletalActorsNotUsingBoneMeshes = new HashSet<string>() { "IT4", "IT61", "IT153", "IT154", "IT157", "IT198" };
-        private static readonly ISet<string> MissingSkeletalActors = new HashSet<string>() { "IT145" };
+		private static readonly string VeliousHelmIdFile = "IT240";
     }
 
-    public class PlayerCharacterModel
-    {
+    public class PlayerCharacterModel : ICharacterModel
+	{
         public int Face { get; set; }
         public string RaceGender { get; set; }
         [JsonPropertyName("Primary ID")]
@@ -368,10 +235,66 @@ namespace LanternExtractor.EQ.Wld.Exporters
             public bool Velious { get; set; }
         }
 
-        public Equipment GetEquipmentForImageName(string imageName, out bool isChest)
+        public bool TryGetMaterialVariation(string imageName, out int variationIndex, out DColor? color)
         {
-            isChest = false;
-            imageName = imageName.ToLower();
+            var equipment = GetEquipmentForImageName(imageName, out var isChest);
+
+            variationIndex = equipment.Material;
+            color = equipment.Color;
+
+            if (variationIndex == 0) return false;
+
+			variationIndex = isChest && IsChestRobe() ? variationIndex - 7 : variationIndex - 1;
+
+            return true;
+        }
+
+        public bool ShouldSkipMeshGenerationForMaterial(string materialName)
+        {
+            if (!RequiresMeshModificationsForVeliousHelm()) return false;
+
+            var raceGendersWithHelmMaterialName = new HashSet<string>() { "DAF", "ELF", "ERF", "HUF" };
+            if (raceGendersWithHelmMaterialName.Contains(RaceGender) && materialName.Contains("helm"))
+            {
+                return true;
+            }
+            if (RaceGender == "BAF" && materialName.Contains("bamhe") &&
+                (materialName.EndsWith("03") || materialName.EndsWith("05")))
+            {
+                return true;
+            }
+            if (RaceGender == "DAF" && materialName.Contains("dafhe00") && materialName.EndsWith("2"))
+            {
+                return true;
+            }
+            if (RaceGender == "ERM" &&
+                (materialName.Contains("clkerm") || (materialName.Contains("clk") && materialName.EndsWith("06"))))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        public void FixHelmMaterial()
+        {
+			if (Head.Material == 7)
+			{
+				Head.Material = 2; // Kunark chain
+			}
+			else if (RequiresMeshModificationsForVeliousHelm() && RaceGender != "ERM")
+			{
+				Head.Material = 3;
+			}
+			else if (Head.Material == 4 || Head.Material > 16 || Head.Velious) // Monk or Velious
+			{
+				Head.Material = 0;
+			}
+		}
+
+		private Equipment GetEquipmentForImageName(string imageName, out bool isChest)
+		{
+			isChest = false;
+			imageName = imageName.ToLower();
             if (imageName.StartsWith("clk"))
             {
                 isChest = true;
@@ -481,6 +404,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             { "IKM", "IT635" },
             { "IKF", "IT630" }
         };
+
         private static readonly List<string> HeadImagesWithNoVariant = new List<string>()
         {
             "helm",
@@ -489,7 +413,43 @@ namespace LanternExtractor.EQ.Wld.Exporters
         };
     }
 
-    public class ColorJsonConverter : JsonConverter<DColor?>
+	public class CharacterVariationComparer : IEqualityComparer<PlayerCharacterModel>
+	{
+		public bool Equals(PlayerCharacterModel x, PlayerCharacterModel y)
+		{
+            return string.Equals(x.RaceGender, y.RaceGender, StringComparison.InvariantCultureIgnoreCase) &&
+                string.Equals(x.Primary_ID, y.Primary_ID, StringComparison.InvariantCultureIgnoreCase) &&
+                string.Equals(x.Secondary_ID, y.Secondary_ID, StringComparison.InvariantCultureIgnoreCase) &&
+                x.Face == y.Face &&
+                x.Head.Material == y.Head.Material &&
+                x.Head.Velious == y.Head.Velious &&
+                x.Wrist.Material == y.Wrist.Material &&
+                x.Arms.Material == y.Arms.Material &&
+                x.Hands.Material == y.Hands.Material &&
+                x.Chest.Material == y.Chest.Material &&
+                x.Chest.Color == y.Chest.Color &&
+                x.Legs.Material == y.Legs.Material &&
+                x.Feet.Material == y.Feet.Material;
+		}
+
+		public int GetHashCode(PlayerCharacterModel obj)
+		{
+            return (obj.RaceGender.ToUpper(),
+                obj.Primary_ID?.ToUpper(),
+                obj.Secondary_ID?.ToUpper(),
+                obj.Face,
+                obj.Head.Material,
+                obj.Head.Velious,
+                obj.Wrist.Material,
+                obj.Arms.Material,
+                obj.Hands.Material,
+                obj.Chest.Material,
+                obj.Chest.Color,
+                obj.Legs.Material,
+                obj.Feet.Material).GetHashCode();
+		}
+	}
+	public class ColorJsonConverter : JsonConverter<DColor?>
     {
         public override DColor? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {

@@ -184,10 +184,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<string, List<(string, string)>> _skeletonChildrenAttachBones;
         private IEnumerable<IGrouping<UniqueLight, LightInstance>> _lightGroups;
         private bool _separateTwoFacedTriangles;
-        private PlayerCharacterModel _playerCharacterModel;
         private float _lightIntensityMultiplier;
 
-        public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, bool separateTwoFacedTriangles = false, PlayerCharacterModel playerCharacterModel = null)
+        public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, bool separateTwoFacedTriangles = false)
         {
             _exportVertexColors = exportVertexColors;
             _exportFormat = exportFormat;
@@ -199,7 +198,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
             _skeletonChildrenAttachBones = new Dictionary<string, List<(string, string)>>();
             _sharedMeshes = new Dictionary<string, IMeshBuilder<MaterialBuilder>>();
             _separateTwoFacedTriangles = separateTwoFacedTriangles;
-            _playerCharacterModel = playerCharacterModel;
             _scene = new SceneBuilder();
         }
 
@@ -210,8 +208,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 generationMode:ModelGenerationMode.Separate );
         }
 
-        public void AddFragmentData(Mesh mesh, SkeletonHierarchy skeleton, int singularBoneIndex = -1, string parentSkeletonName = null, 
-            string parentSkeletonAttachBoneName = null, string meshNameOverride = null, bool usesMobPieces = false )
+        public void AddFragmentData(Mesh mesh, SkeletonHierarchy skeleton, int singularBoneIndex = -1, 
+            ICharacterModel characterModel = null, string parentSkeletonName = null, string parentSkeletonAttachBoneName = null, 
+            string meshNameOverride = null, bool usesMobPieces = false )
         {
             if (!_skeletons.ContainsKey(skeleton.ModelBase))
             {
@@ -224,7 +223,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 isSkinned: true, 
                 meshNameOverride: meshNameOverride, 
                 singularBoneIndex: singularBoneIndex,
-                usesMobPieces: usesMobPieces);
+                usesMobPieces: usesMobPieces,
+                characterModel: characterModel);
         }
 
         public void CopyMaterialList(GltfWriter gltfWriter)
@@ -266,7 +266,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
             ObjInstance objectInstance = null, 
             int instanceIndex = 0,
             bool isZoneMesh = false,
-            bool usesMobPieces = false)
+            bool usesMobPieces = false,
+            ICharacterModel characterModel = null)
         {
             var meshName = meshNameOverride ?? FragmentNameCleaner.CleanName(mesh);
 			var transformMatrix = objectInstance == null ? Matrix4x4.Identity : CreateTransformMatrixForObjectInstance(objectInstance);
@@ -315,28 +316,22 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
                 Color? baseColor = null;
-                if (_playerCharacterModel != null)
+                if (characterModel != null)
                 {
-                    var equip = _playerCharacterModel.GetEquipmentForImageName(material.GetFirstBitmapNameWithoutExtension(), out var isChest);
-                    if (equip != null)
+                    if (characterModel.TryGetMaterialVariation(material.GetFirstBitmapNameWithoutExtension(), out var variationIndex, out var color))
                     {
-                        if (equip.Material > 0)
-                        {
-                            var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, _logger);
-                            var materialIndex = isChest && _playerCharacterModel.IsChestRobe() ? equip.Material - 7 : equip.Material - 1;
+						var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, _logger);
+						if (alternateSkins.Any() && alternateSkins.Count() > variationIndex && alternateSkins.ElementAt(variationIndex) != null)
+						{
+							material = alternateSkins[variationIndex];
+						}
 
-                            if (alternateSkins.Any() && alternateSkins.Count() > materialIndex && alternateSkins.ElementAt(materialIndex) != null)
-                            {
-                                material = alternateSkins[materialIndex];
-                            }
-                        }
-
-                        baseColor = equip.Color;
+                        baseColor = color;
                     }
                 }
                 var materialName = GetMaterialName(material);
 
-                if (ShouldSkipMeshGenerationForMaterial(materialName))
+                if (_meshMaterialsToSkip.Contains(materialName) || (characterModel != null && characterModel.ShouldSkipMeshGenerationForMaterial(materialName)))
                 {
                     polygonIndex += materialGroup.PolygonCount;
                     continue;
@@ -589,7 +584,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             WriteAssetToFile(fileName, false);
         }
 
-        public void WriteAssetToFile(string fileName, bool useExistingImages, bool isZone = false, string skeletonModelBase = null, bool cleanupTexturesFolder = false)
+        public void WriteAssetToFile(string fileName, bool useExistingImages, string skeletonModelBase = null, bool cleanupTexturesFolder = false)
         {
             AddCombinedMeshToScene(false, null, skeletonModelBase);
 
@@ -857,34 +852,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
 		private string GetMaterialName(Material eqMaterial)
         {
             return $"{MaterialList.GetMaterialPrefix(eqMaterial.ShaderType)}{eqMaterial.GetFirstBitmapNameWithoutExtension()}";
-        }
-
-        private bool ShouldSkipMeshGenerationForMaterial(string materialName)
-        {
-            if (_meshMaterialsToSkip.Contains(materialName)) return true;
-
-            if (_playerCharacterModel == null || !_playerCharacterModel.RequiresMeshModificationsForVeliousHelm()) return false;
-
-            var raceGendersWithHelmMaterialName = new HashSet<string>() { "DAF", "ELF", "ERF", "HUF" };
-            if (raceGendersWithHelmMaterialName.Contains(_playerCharacterModel.RaceGender) && materialName.Contains("helm"))
-            {
-                return true;
-            }
-            if (_playerCharacterModel.RaceGender == "BAF" && materialName.Contains("bamhe") &&
-                (materialName.EndsWith("03") || materialName.EndsWith("05")))
-            {
-                return true;
-            }
-            if (_playerCharacterModel.RaceGender == "DAF" && materialName.Contains("dafhe00") && materialName.EndsWith("2"))
-            {
-                return true;
-            }
-            if (_playerCharacterModel.RaceGender == "ERM" && 
-                (materialName.Contains("clkerm") || (materialName.Contains("clk") && materialName.EndsWith("06"))))
-            {
-                return true;
-            }
-            return false;
         }
 
         private MaterialBuilder GetBlankMaterial(string name = null)
@@ -1301,6 +1268,13 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
     }
+
+    public interface ICharacterModel
+    {
+        bool TryGetMaterialVariation(string imageName, out int variationIndex, out Color? color);
+        bool ShouldSkipMeshGenerationForMaterial(string materialName);
+    }
+
 	static class ImageAlphaConverter
     {
         public static string AddAlphaToImage(string filePath, ShaderType shaderType)

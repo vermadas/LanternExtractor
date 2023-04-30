@@ -59,6 +59,11 @@ ExportZoneWithObjects = false
 # (glTF)
 ExportZoneWithDoors = false
 
+# If true, will export every character variation that can spawn in the zone
+# Requires database connection
+# (glTF)
+ExportZoneCharacterVariations = false
+
 # If > 0.0, will export light instances in the exported zone. Uses KHR_lights_punctual extension.
 # Lights get exported with type = point. 
 # Intensity property is EQ client's LightInstance.Radius * LightIntensityMultiplier.

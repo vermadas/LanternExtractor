@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace LanternExtractor
 {
     /// <summary>
@@ -18,5 +20,12 @@ namespace LanternExtractor
         public const string S3dFormatExtension = ".s3d";
         public const string PfsFormatExtension = ".s3d";
         public const string SoundFormatExtension = ".eff";
+
+        public static readonly HashSet<string> PlayerCharacterActorNames = new HashSet<string>()
+        {
+            "baf", "bam", "daf", "dam", "dwf", "dwm", "elf", "elm", "erf", "erm",
+            "gnf", "gnm", "haf", "ham", "hif", "him", "hof", "hom", "huf", "hum",
+            "ikf", "ikm", "ogf", "ogm", "trf", "trm"
+        };
     }
 }

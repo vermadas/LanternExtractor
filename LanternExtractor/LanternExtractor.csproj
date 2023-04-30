@@ -52,6 +52,7 @@
     <Compile Include="EqFileHelper.cs" />
     <Compile Include="EQ\ArchiveExtractor.cs" />
     <Compile Include="EQ\GlobalReference.cs" />
+    <Compile Include="EQ\NpcDatabaseToClientTranslator.cs" />
     <Compile Include="EQ\Pfs\PfsArchive.cs" />
     <Compile Include="EQ\Pfs\PfsFile.cs" />
     <Compile Include="EQ\ShortnameHelper.cs" />
@@ -137,6 +138,7 @@
     <Compile Include="EQ\Wld\Fragments\Fragment16.cs" />
     <Compile Include="EQ\Wld\Helpers\FragmentNameCleaner.cs" />
     <Compile Include="EQ\Wld\Helpers\CharacterFixer.cs" />
+    <Compile Include="EQ\Wld\Helpers\GltfCharacterHeldEquipmentHelper.cs" />
     <Compile Include="EQ\Wld\Helpers\MaterialFixer.cs" />
     <Compile Include="EQ\Wld\Helpers\MeshExportHelper.cs" />
     <Compile Include="EQ\Wld\Helpers\MissingTextureFixer.cs" />
@@ -171,6 +173,9 @@
   <ItemGroup>
     <None Include="App.config" />
     <Content Include="PcEquip.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="RaceData.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

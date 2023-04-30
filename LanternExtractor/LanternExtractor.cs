@@ -50,7 +50,7 @@ namespace LanternExtractor
             DateTime start = DateTime.Now;
 
 #if DEBUG
-//            args = new string[] { "timorous" };
+//            args = new string[] { "permafrost" };
 #endif
             if (args.Length != 1)
             {
@@ -72,7 +72,7 @@ namespace LanternExtractor
                 {
                     ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
                     PlayerCharacterGltfExporter.AddPcEquipmentClientDataFromDatabase(playerCharacterEquipment);
-                    PlayerCharacterGltfExporter.InitWldsForPlayerCharacterGltfExport(playerCharacterEquipment, "Exports/", _logger, _settings, out var mainWldEqFile);
+                    ArchiveExtractor.InitWldsForPlayerCharacterGltfExport(playerCharacterEquipment, "Exports/", _logger, _settings, out var mainWldEqFile);
                     PlayerCharacterGltfExporter.ExportPlayerCharacter(playerCharacterEquipment, GlobalReference.CharacterWld, mainWldEqFile, _logger, _settings);
                 }
                 finally
@@ -100,9 +100,13 @@ namespace LanternExtractor
                 return;
             }
 
-            if (_settings.ExportAdditionalAnimations && !_settings.RawS3dExtract)
+            if ((_settings.ExportAdditionalAnimations || _settings.ExportZoneCharacterVariations) && !_settings.RawS3dExtract)
             {
                 ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
+            }
+            if (_settings.ExportZoneCharacterVariations)
+            {
+                GlobalReference.InitNpcDatabaseToClientTranslator("RaceData.csv");
             }
             try
             {
@@ -176,7 +180,7 @@ namespace LanternExtractor
 
         private static bool IsDatabaseConnectionRequired()
         {
-            return _settings.ExportZoneWithDoors;
+            return _settings.ExportZoneWithDoors || _settings.ExportZoneCharacterVariations;
         }
     }
 }

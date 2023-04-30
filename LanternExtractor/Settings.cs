@@ -87,6 +87,11 @@ namespace LanternExtractor
         /// </summary>
         public bool ExportZoneWithDoors { get; private set; }
 
+        /// <summary>
+        /// Exports zone with all character variants that can spawn in it
+        /// </summary>
+        public bool ExportZoneCharacterVariations { get; private set; }
+
 		/// <summary>
 		/// Exports zone glTF with light instances with intensity set to the
         /// provided value. If set at 0, lights are not exported
@@ -213,6 +218,11 @@ namespace LanternExtractor
             {
                 ExportZoneWithDoors = Convert.ToBoolean(parsedSettings["ExportZoneWithDoors"]);
             }
+
+			if (parsedSettings.ContainsKey("ExportZoneCharacterVariations"))
+			{
+				ExportZoneCharacterVariations = Convert.ToBoolean(parsedSettings["ExportZoneCharacterVariations"]);
+			}
 
 			if (parsedSettings.ContainsKey("LightIntensityMultiplier"))
 			{

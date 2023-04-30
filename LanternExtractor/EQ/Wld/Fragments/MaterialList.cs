@@ -139,8 +139,9 @@ namespace LanternExtractor.EQ.Wld.Fragments
             else if (materialName.Length == 9)
             {
                 character = materialName.Substring(0, 3);
-                if (materialName.Substring(3,4).Equals("he00", StringComparison.InvariantCultureIgnoreCase))
-                { // Pattern is different for head/face
+                if (materialName.Substring(3,4).Equals("he00", StringComparison.InvariantCultureIgnoreCase) &&
+                    LanternStrings.PlayerCharacterActorNames.Contains(character))
+                { // Pattern is different for head/face for player characters
                     if (character.Substring(2).Equals("ik", StringComparison.InvariantCultureIgnoreCase) &&
                         new List<string>() { "10", "13", "14", "15", "16"}.Contains(materialName.Substring(7, 2)))
                     { // Iksar have part numbers that roll past 10, but 11, 12 still follow the other pattern

@@ -100,7 +100,7 @@ namespace LanternExtractor
                 return;
             }
 
-            if ((_settings.ExportAdditionalAnimations || _settings.ExportZoneCharacterVariations) && !_settings.RawS3dExtract)
+            if (_settings.UsingCombinedGlobalChr())
             {
                 ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
             }

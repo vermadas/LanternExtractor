@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Runtime;
 using LanternExtractor.Infrastructure;
 using LanternExtractor.Infrastructure.Logger;
 
@@ -131,10 +133,9 @@ namespace LanternExtractor
         public string ClientDataToCopy { get; private set; }
 
         /// <summary>
-        /// For skeletal models, if additional compatible animations are available
-        /// in the global character files, include them in the export
+        /// Animation types to include in the export
         /// </summary>
-        public bool ExportAdditionalAnimations { get; private set; }
+        public List<string> ExportedAnimationTypes { get; private set; }
 
         /// <summary>
         /// Path to the server database
@@ -275,9 +276,12 @@ namespace LanternExtractor
 				SeparateTwoFacedTriangles = Convert.ToBoolean(parsedSettings["SeparateTwoFacedTriangles"]);
 			}
 
-			if (parsedSettings.ContainsKey("ExportAdditionalAnimations"))
+			if (parsedSettings.ContainsKey("ExportedAnimationTypes"))
             {
-                ExportAdditionalAnimations = Convert.ToBoolean(parsedSettings["ExportAdditionalAnimations"]);
+                var animationIncludeString = parsedSettings["ExportedAnimationTypes"].Trim();
+				ExportedAnimationTypes = animationIncludeString
+                    .Split(',').Select(a => a.Trim().ToLower())
+                    .Where(a => a.Length == 1).ToList();
             }
 			
             if (parsedSettings.ContainsKey("ClientDataToCopy"))
@@ -295,5 +299,12 @@ namespace LanternExtractor
                 LoggerVerbosity = Convert.ToInt32(parsedSettings["LoggerVerbosity"]);
             }
         }
+
+        public bool UsingCombinedGlobalChr()
+		{
+            return ModelExportFormat != ModelExportFormat.Intermediate &&
+				(ExportAllAnimationFrames || ExportZoneCharacterVariations)
+                && !RawS3dExtract;
+		}
     }
 }

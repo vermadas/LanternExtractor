@@ -23,9 +23,9 @@ namespace LanternExtractor.EQ
                 return;
             }
 
-            // If ExportAdditionalAnimations then global_chr should already be initialized
-            // and we can skip that step
-            if (archiveName == "global_chr" && settings.ExportAdditionalAnimations)
+			// If ExportAllAnimationFrames is set and exporting obj or gltf then
+            // global_chr should already be initialized and we can skip that step
+			if (archiveName == "global_chr" && settings.UsingCombinedGlobalChr())
             {
                 var globalChrWld = GlobalReference.CharacterWld;
                 if (globalChrWld != null)

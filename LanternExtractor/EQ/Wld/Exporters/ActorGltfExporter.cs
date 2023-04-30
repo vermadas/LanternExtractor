@@ -296,7 +296,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
 			if (skeleton == null) return;
 
-			if (settings.ExportAdditionalAnimations && wldFile.ZoneShortname != "global")
+			if (settings.ExportAllAnimationFrames && wldFile.ZoneShortname != "global")
 			{
 				GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
 			}
@@ -342,7 +342,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			{
 				gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
 
-				foreach (var animationKey in skeleton.Animations.Keys
+                foreach (var animationKey in skeleton.Animations.Keys
+                    .Where(a => a == "pos" ||
+                        settings.ExportedAnimationTypes.Contains(a.Substring(0, 1).ToLower()))
 					.OrderBy(k => k, new AnimationKeyComparer()))
 				{
 					gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
@@ -470,7 +472,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
 			var actorName = FragmentNameCleaner.CleanName(skeleton);
 
-			if (settings.ExportAdditionalAnimations && wldFile.ZoneShortname != "global")
+			if (settings.ExportAllAnimationFrames)
 			{
 				GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
 			}
@@ -575,6 +577,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 					gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
 
 					foreach (var animationKey in skeleton.Animations.Keys
+						.Where(a => settings.ExportedAnimationTypes.Contains(a.Substring(0, 1).ToLower()))
 						.OrderBy(k => k, new AnimationKeyComparer()))
 					{
 						gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,

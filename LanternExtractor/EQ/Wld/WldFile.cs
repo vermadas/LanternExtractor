@@ -607,13 +607,6 @@ namespace LanternExtractor.EQ.Wld
                     skeletonWriter.ClearExportData();
                 }
 
-                if (_settings.ExportAdditionalAnimations &&
-                    _settings.ModelExportFormat == ModelExportFormat.Intermediate &&
-                    !ZoneShortname.StartsWith("global"))
-                {
-                    GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
-                }
-
                 foreach (var animation in skeleton.Animations)
                 {
                     var modelBase = string.IsNullOrEmpty(animation.Value.AnimModelBase)

@@ -167,15 +167,21 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 return;
             }
 
-            if (settings.ExportAdditionalAnimations && wldFile.ZoneShortname != "global")
-            {
-                GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
-            }
-
             if (settings.ExportAllAnimationFrames)
             {
+				if (wldFile.ZoneShortname != "global")
+				{
+					GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
+				}
+				
                 foreach (var animation in skeleton.Animations)
                 {
+                    var animationKeyPrefix = animation.Key.Substring(0, 1).ToLower();
+                    if ( animation.Key != "pos" &&
+                        !settings.ExportedAnimationTypes.Contains(animationKeyPrefix))
+                    {
+                        continue;
+                    }
                     for (int i = 0; i < animation.Value.FrameCount; ++i)
                     {
                         WriteAnimationFrame(skeleton, animation.Key, i, settings, wldFile);

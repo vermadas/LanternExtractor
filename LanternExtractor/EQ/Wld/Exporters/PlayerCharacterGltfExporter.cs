@@ -179,6 +179,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			if (settings.ExportAllAnimationFrames)
 			{
 				foreach (var animationKey in skeleton.Animations.Keys
+					.Where(a => settings.ExportedAnimationTypes.Contains(a.Substring(0, 1).ToLower()))
 					.OrderBy(k => k, new AnimationKeyComparer()))
 				{
 					gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, true, false);

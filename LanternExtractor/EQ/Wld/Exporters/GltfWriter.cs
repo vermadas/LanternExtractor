@@ -1128,9 +1128,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			}
 
 			(Vector3 v0, Vector3 v1, Vector3 v2) vertexNormals = (
-			    Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex1].ToVector3()),
-	            Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex2].ToVector3()),
-	            Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex3].ToVector3()));
+			    Vector3.Normalize(_wldMesh.Normals[triangle.Vertex1].ToVector3(true)),
+	            Vector3.Normalize(_wldMesh.Normals[triangle.Vertex2].ToVector3(true)),
+	            Vector3.Normalize(_wldMesh.Normals[triangle.Vertex3].ToVector3(true)));
 
             return vertexNormals;
 		}
@@ -1184,15 +1184,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex1, out var v0Normal))
             {
-                v0Normal = Vector3.Normalize(_wldMesh.Normals[triangle.Vertex1].ToVector3());
+                v0Normal = Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex1].ToVector3(true));
             }
 			if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex2, out var v1Normal))
 			{
-				v1Normal = Vector3.Normalize(_wldMesh.Normals[triangle.Vertex2].ToVector3());
+				v1Normal = Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex2].ToVector3(true));
 			}
 			if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex3, out var v2Normal))
 			{
-				v2Normal = Vector3.Normalize(_wldMesh.Normals[triangle.Vertex3].ToVector3());
+				v2Normal = Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex3].ToVector3(true));
 			}
 
             return (v0Normal, v1Normal, v2Normal);

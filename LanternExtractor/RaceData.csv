@@ -15,7 +15,7 @@ Id,Name,Male,Female,Neutral,Height,BoundingRadius,Scale Factor,Size
 14,Werewolf,,,WER,0.625,6.20092,0.2,1
 15,Brownie,BRM,BRF,,0.625,5.4499,0.2,1
 16,Centaur,,,CEN,0.625,8.12494,0.2,1
-17,Golem,,,GOL,0.625,5.59691,0.2,1
+17,Golem,GOM,,GOL,0.625,5.59691,0.2,1
 18,Giant / Cyclops,,,GIA,0.625,8.11092,0.2,1
 19,Trakanon,,,TRK,0.625,41.5857,0.2,1
 20,Doppleganger,,,VST,0.625,7.69592,0.2,1

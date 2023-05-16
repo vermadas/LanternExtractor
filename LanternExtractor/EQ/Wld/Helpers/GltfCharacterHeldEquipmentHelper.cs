@@ -49,7 +49,12 @@ namespace LanternExtractor.EQ.Wld.Helpers
 		{
 			if (meshOrSkeleton == null) return;
 
-			var boneIndex = characterSkeleton.BoneMappingClean.Where(kv => kv.Value == attachBoneKey).Single().Key;
+			var attachBone = characterSkeleton.BoneMappingClean.Where(kv => kv.Value == attachBoneKey).SingleOrDefault();
+			
+			if (attachBone.Equals(default(KeyValuePair<int, string>))) return;
+
+			var boneIndex = attachBone.Key;
+
 			if (meshOrSkeleton is Mesh)
 			{
 				var originalVertices = MeshExportHelper.ShiftMeshVertices((Mesh)meshOrSkeleton, characterSkeleton, true, "pos", 0, boneIndex, true);

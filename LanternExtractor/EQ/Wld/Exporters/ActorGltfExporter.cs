@@ -661,7 +661,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
         private static string GetUniqueNpcString(string actorName, Npc npc)
         {
-            if (npc.Texture == 0 && npc.Face == 0 && npc.Texture == 0 &&
+            if (npc.Texture == 0 && npc.Face == 0 &&
                 npc.Primary == 0 && npc.Secondary == 0 && npc.HelmTexture == 0)
             {
                 return actorName;

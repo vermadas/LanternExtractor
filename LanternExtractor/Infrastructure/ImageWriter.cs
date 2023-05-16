@@ -15,6 +15,10 @@ namespace LanternExtractor.Infrastructure
         public static void WriteImageAsPng(byte[] bytes, string filePath, string fileName, bool isMasked,
             ILogger logger)
         {
+            if (File.Exists(Path.Combine(filePath, Path.GetFileNameWithoutExtension(fileName) + ".png")))
+            {
+                return;
+            }
             // https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide#dds-file-layout
             bool ddsMagic = Encoding.ASCII.GetString(bytes, 0, 4) == "DDS ";
             if (fileName.EndsWith(".bmp") && !ddsMagic)

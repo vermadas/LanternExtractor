@@ -1,0 +1,44 @@
+{
+  "Face": 7,
+  "RaceGender": "TRM",
+  "Primary ID": "IT197",
+  "Primary Name": "",
+  "Secondary ID": "IT209",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 1,
+    "Color": null
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 21,
+    "Color": "#006496"
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 21,
+    "Color": "#006496"
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 17,
+    "Color": "#004b00"
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 21,
+    "Color": "#006496"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 18,
+    "Color": null
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 21,
+    "Color": "#006496"
+  }
+}

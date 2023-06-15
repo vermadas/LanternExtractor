@@ -1,0 +1,51 @@
+{
+      "Face": 3,
+      "RaceGender": "GNF",
+      "Primary ID": "",
+      "Primary Name":  "Staff of the Wheel",
+      "Secondary ID": "",
+      "Secondary Name":  "Stein of Moggok",
+      "Head":
+      {
+          "Name": "Runed Cowl",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Impskin Gloves",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Carmine Robe",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Carmine Boots",
+          "Material": 0,
+          "Color": null
+      }
+}

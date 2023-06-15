@@ -1,0 +1,51 @@
+{
+      "Face": 3,
+      "RaceGender": "HUF",
+      "Primary ID": "",
+      "Primary Name":  "Lamentation Blade",
+      "Secondary ID": "",
+      "Secondary Name":  "",
+      "Head":
+      {
+          "Name": "Hammerhead Helm",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Rubicite Bracer",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Enchanted Full Plate",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Valorium Gauntlets",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Brigandine Tunic",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Enchanted Full Plate",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Valorium",
+          "Material": 0,
+          "Color": null
+      }
+}

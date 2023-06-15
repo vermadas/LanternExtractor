@@ -1,0 +1,44 @@
+{
+  "Face": 6,
+  "RaceGender": "BAM",
+  "Primary ID": "IT34",
+  "Primary Name": "",
+  "Secondary ID": "IT19",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 2,
+    "Color": null
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 2,
+    "Color": null
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#c96607"
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 3,
+    "Color": null
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#c96607"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#c96607"
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 2,
+    "Color": null
+  }
+}

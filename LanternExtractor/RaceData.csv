@@ -71,7 +71,7 @@ Id,Name,Male,Female,Neutral,Height,BoundingRadius,Scale Factor,Size
 70,Zombie,ZOM,ZOF,,0.625,5.4499,0.2,1
 71,Qeynos Citizen,QCM,QCF,,0.625,5.4499,0.2,1
 72,Ship,SHIP,SHIP,SHIP,0.1,146.11,2,1
-73,Launch,LAUNCH,LAUNCH,LAUNCH,0.1,73.5643,1,1
+73,Launch,LAUNCHM101,LAUNCHM101,LAUNCHM101,0.1,73.5643,1,1
 74,Piranha,,,PIR,0.625,8.7411,0.2,1
 75,Elemental,,,ELE,0.625,5.65334,0.2,1
 76,Puma,,,PUM,0.625,5.77437,0.2,1
@@ -104,7 +104,7 @@ Id,Name,Male,Female,Neutral,Height,BoundingRadius,Scale Factor,Size
 103,Kedge,,,KED,0.625,5.84754,0.2,1
 104,Leech,,,LEE,0.625,10.733,0.2,1
 105,Swordfish,,,SWO,0.625,3.87731,0.2,1
-106,Felguard,FEM,,,0.625,5.58334,0.2,1
+106,Felguard,FEM,FEF,,0.625,5.58334,0.2,1
 107,Mammoth,,,MAM,0.625,13.9833,0.2,1
 108,Eye of Zomm,,,EYE,3,30,0.05,1
 109,Wasp,,,WAS,0.625,12.1309,0.2,1

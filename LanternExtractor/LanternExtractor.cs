@@ -50,19 +50,40 @@ namespace LanternExtractor
             DateTime start = DateTime.Now;
 
 #if DEBUG
-//            args = new string[] { "permafrost" };
+//            args = new string[] { "qeynos" };
 #endif
-            if (args.Length != 1)
+            if (args.Length == 0 || args.Length > 2 || 
+                (args.Length == 2 && !args[0].Equals("pc", StringComparison.InvariantCultureIgnoreCase)))
             {
-                Console.WriteLine("Usage: lantern.exe <filename/shortname/pc/all>");
+                Console.WriteLine("Usage: lantern.exe <filename/shortname/pc/all> [if previous argument pc - pc equip json file]");
                 return;
             }
 
             var archiveName = args[0];
             if (archiveName.Equals("pc", StringComparison.InvariantCultureIgnoreCase))
             {
+                var pcEquipFilePath = "PcEquip.json";
+                if (args.Length == 2)
+                {
+                    pcEquipFilePath = args[1].Trim();
+                    var extension = Path.GetExtension(pcEquipFilePath);
+                    if (extension == string.Empty)
+                    {
+                        pcEquipFilePath = Path.ChangeExtension(pcEquipFilePath, "json");
+                    }
+                    else if (!extension.Equals(".json", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        Console.WriteLine($"pc equip file: {pcEquipFilePath} does not have expected json extension");
+                        return;
+                    }
+                }
                 _settings.ModelExportFormat = ModelExportFormat.GlTF;
-                var playerCharacterEquipment = ReadPlayerCharacterModel("PcEquip.json");
+                var playerCharacterEquipment = ReadPlayerCharacterModel(pcEquipFilePath);
+                if (playerCharacterEquipment == null) return;
+                
+                var pcExportFolder = pcEquipFilePath == "PcEquip.json" ? 
+                    playerCharacterEquipment.RaceGender :
+                    Path.GetFileNameWithoutExtension(pcEquipFilePath);
 
                 if (IsDatabaseConnectionRequired(playerCharacterEquipment))
                 {
@@ -72,8 +93,10 @@ namespace LanternExtractor
                 {
                     ArchiveExtractor.InitializeSharedCharacterWld("Exports/", _logger, _settings);
                     PlayerCharacterGltfExporter.AddPcEquipmentClientDataFromDatabase(playerCharacterEquipment);
-                    ArchiveExtractor.InitWldsForPlayerCharacterGltfExport(playerCharacterEquipment, "Exports/", _logger, _settings, out var mainWldEqFile);
-                    PlayerCharacterGltfExporter.ExportPlayerCharacter(playerCharacterEquipment, GlobalReference.CharacterWld, mainWldEqFile, _logger, _settings);
+                    ArchiveExtractor.InitWldsForPlayerCharacterGltfExport(playerCharacterEquipment, 
+                        "Exports/", pcExportFolder, _logger, _settings, out var mainWldEqFile);
+                    PlayerCharacterGltfExporter.ExportPlayerCharacter(playerCharacterEquipment, 
+                        GlobalReference.CharacterWld, mainWldEqFile, _logger, _settings, pcExportFolder);
                 }
                 finally
                 {
@@ -150,7 +173,7 @@ namespace LanternExtractor
         {
             if (!File.Exists(pcEquipJsonFilePath))
             {
-                Console.WriteLine("PcEquip.json file not found!");
+                Console.WriteLine($"PcEquip json file not found at: {pcEquipJsonFilePath}!");
                 return null;
             }
 

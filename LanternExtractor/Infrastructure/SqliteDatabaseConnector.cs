@@ -1,8 +1,10 @@
 ﻿using LanternExtractor.EQ;
 using LanternExtractor.EQ.Wld.Exporters;
+using LanternExtractor.EQ.Wld.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Entity.Infrastructure;
 using System.Data.SQLite;
 using System.Drawing;
 using System.Numerics;
@@ -126,17 +128,17 @@ namespace LanternExtractor.Infrastructure
                         pcModel.RaceGender = GlobalReference.NpcDatabaseToClientTranslator
                             .GetClientModelForRaceIdAndGender(raceId, gender);
 
-                        var primaryId = (int)(long)reader[LanternDb.Npc_MeleeTexture1Column];
-                        if (primaryId > 0)
+                        GetPrimaryAndSecondaryIdsFromReader(reader, out var primaryId, out var secondaryId);
+						if (primaryId > 0)
                         {
                             pcModel.Primary_ID = $"IT{primaryId}";
                         }
-						var secondaryId = (int)(long)reader[LanternDb.Npc_MeleeTexture2Column];
 						if (secondaryId > 0)
 						{
 							pcModel.Secondary_ID = $"IT{secondaryId}";
 						}
-                        var mainMaterial = 0;
+
+						var mainMaterial = 0;
                         if (reader[LanternDb.Npc_TextureColumn].GetType() != typeof(DBNull))
                         {
 							mainMaterial = (int)reader[LanternDb.Npc_TextureColumn];
@@ -164,7 +166,7 @@ namespace LanternExtractor.Infrastructure
                         Color? chestColor = null;
                         if (reader[LanternDb.ChestColorAlias].GetType() != typeof(DBNull))
                         {
-                            var colorInt = (int)(long)reader[LanternDb.ChestColorAlias];
+                            var colorInt = (int)reader[LanternDb.ChestColorAlias];
                             if (colorInt > 0)
                             {
 								chestColor = ColorTranslator.FromHtml($"#{colorInt:X6}");
@@ -200,15 +202,15 @@ namespace LanternExtractor.Infrastructure
 
         public IEnumerable<Npc> QueryGlobalNpcsInZone(string zoneName)
         {
-            return QueryNpcs(zoneName, GlobalCharactersInZoneQuery);
+            return QueryNpcs(zoneName, GlobalCharactersInZoneQuery, false);
         }
 
         public IEnumerable<Npc> QueryNpcsWithVariationsInZone(string zoneName)
         {
-            return QueryNpcs(zoneName, NpcsWithVariationsQuery);
+            return QueryNpcs(zoneName, NpcsWithVariationsQuery, true);
         }
 
-        private IEnumerable<Npc> QueryNpcs(string zoneName, string query)
+        private IEnumerable<Npc> QueryNpcs(string zoneName, string query, bool removeNonVars)
         {
             var npcs = new List<Npc>();
 
@@ -226,18 +228,34 @@ namespace LanternExtractor.Infrastructure
                 {
                     while (reader.Read())
                     {
+                        GetPrimaryAndSecondaryIdsFromReader(reader, out var primaryId, out var secondaryId);
+
                         var npc = new Npc()
                         {
                             Race = (int)reader[LanternDb.Npc_RaceColumn],
                             Gender = (NpcGender)(int)reader[LanternDb.Npc_GenderColumn],
                             Face = (int)(long)reader[LanternDb.Npc_FaceColumn],
                             Texture = (int)reader[LanternDb.Npc_TextureColumn],
-                            Primary = (int)(long)reader[LanternDb.Npc_MeleeTexture1Column],
-                            Secondary = (int)(long)reader[LanternDb.Npc_MeleeTexture2Column],
+                            Primary = primaryId,
+                            Secondary = secondaryId,
                             HelmTexture = (int)reader[LanternDb.Npc_HelmTextureColumn]
                         };
 
-                        npcs.Add(npc);
+						if (primaryId > 0 && !GltfCharacterHeldEquipmentHelper.CanWield(npc.Race, npc.Gender, primaryId))
+						{
+                            npc.Primary = 0;
+						}
+						if (secondaryId > 0 && !GltfCharacterHeldEquipmentHelper.CanWield(npc.Race, npc.Gender, secondaryId))
+						{
+							npc.Secondary = 0;
+						}
+                        if (removeNonVars && npc.Face == 0 && npc.Texture == 0 && 
+                            npc.Primary == 0 && npc.Secondary == 0 && npc.HelmTexture == 0)
+                        {
+                            continue;
+                        }
+                        
+						npcs.Add(npc);
                     }
                 }
 
@@ -278,6 +296,48 @@ namespace LanternExtractor.Infrastructure
             return equipMaterial;
         }
 
+        private void GetPrimaryAndSecondaryIdsFromReader(SQLiteDataReader reader, out int primaryId, out int secondaryId)
+        {
+			primaryId = (int)(long)reader[LanternDb.Npc_MeleeTexture1Column];
+            secondaryId = 0;
+			var primaryItemType = -1;
+			if (primaryId == 0 && reader[LanternDb.PrimaryIdFileAlias].GetType() != typeof(DBNull))
+			{
+				var primaryIdStr = (string)reader[LanternDb.PrimaryIdFileAlias];
+                if (primaryIdStr.Length > 2)
+                {
+					primaryId = int.Parse(primaryIdStr.Substring(2));
+				}         
+			}
+			if (reader[LanternDb.PrimaryItemTypeAlias].GetType() != typeof(DBNull))
+			{
+				primaryItemType = (int)reader[LanternDb.PrimaryItemTypeAlias];
+			}
+			if (!TwoHandedItemTypes.Contains(primaryItemType))
+			{
+				secondaryId = (int)(long)reader[LanternDb.Npc_MeleeTexture2Column];
+				if (secondaryId == 0)
+				{
+					if (reader[LanternDb.Secondary0IdFileAlias].GetType() != typeof(DBNull))
+					{
+						var secondaryIdStr = (string)reader[LanternDb.Secondary0IdFileAlias];
+                        if (secondaryIdStr.Length > 2)
+                        {
+							secondaryId = int.Parse(secondaryIdStr.Substring(2));
+						}     
+					}
+					if (secondaryId == 0 && reader[LanternDb.Secondary1IdFileAlias].GetType() != typeof(DBNull))
+					{
+						var secondaryIdStr = (string)reader[LanternDb.Secondary1IdFileAlias];
+						if (secondaryIdStr.Length > 2)
+						{
+							secondaryId = int.Parse(secondaryIdStr.Substring(2));
+						}
+					}
+				}
+			}
+		}
+
         private readonly SQLiteConnection _connection;
 
         private const string ConnectionString = "Data Source={0};Version=3;Read Only=True";
@@ -309,100 +369,424 @@ where {LanternDb.Doors_ZoneColumn} = @zone
     and {LanternDb.Doors_OpenTypeColumn} not in {LanternDb.DoorsToExclude}";
 
         private static readonly string PlayerCharactersInZoneQuery =
-$@"select distinct 
+$@"with npc_id_list as
+(
+    select distinct n.{LanternDb.Npc_IdColumn}
+	from {LanternDb.SpawnTable} s2
+    join {LanternDb.SpawnGroupTable} sg on s2.{LanternDb.Spawn_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
+    join {LanternDb.SpawnEntryTable} se on se.{LanternDb.SpawnEntry_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
+    join {LanternDb.NpcTable} n on se.{LanternDb.SpawnEntry_NpcIdColumn} = n.{LanternDb.Npc_IdColumn}
+    where s2.{LanternDb.Spawn_ZoneColumn} = @zone
+		and (n.{LanternDb.Npc_RaceColumn} < 13 or n.{LanternDb.Npc_RaceColumn} = 128)
+)
+select distinct
     n.{LanternDb.Npc_IdColumn}, 
     n.{LanternDb.Npc_NameColumn}, 
     n.{LanternDb.Npc_RaceColumn}, 
     n.{LanternDb.Npc_GenderColumn},
     n.{LanternDb.Npc_FaceColumn} % 255 as {LanternDb.Npc_FaceColumn},
     n.{LanternDb.Npc_TextureColumn},
-    case when n.{LanternDb.Npc_MeleeTexture1Column} > 999 
-        then 0 
-        else n.{LanternDb.Npc_MeleeTexture1Column}
-    end as {LanternDb.Npc_MeleeTexture1Column},
-    case when n.{LanternDb.Npc_MeleeTexture2Column} > 999 
-        then 0 
-        else n.{LanternDb.Npc_MeleeTexture2Column}
-    end as {LanternDb.Npc_MeleeTexture2Column},
     n.{LanternDb.Npc_HelmTextureColumn}, 
     n.{LanternDb.Npc_ChestTextureColumn}, 
-    max(i.{LanternDb.Items_ColorColumn}) as {LanternDb.ChestColorAlias}, 
+    ch0.{LanternDb.Items_ColorColumn} as {LanternDb.ChestColorAlias}, 
     n.{LanternDb.Npc_ArmTextureColumn}, 
     n.{LanternDb.Npc_BracerTextureColumn}, 
     n.{LanternDb.Npc_HandTextureColumn}, 
     n.{LanternDb.Npc_LegTextureColumn}, 
-    n.{LanternDb.Npc_FeetTextureColumn}
-from {LanternDb.SpawnTable} s2
-join {LanternDb.SpawnGroupTable} sg on s2.{LanternDb.Spawn_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
-join {LanternDb.SpawnEntryTable} se on se.{LanternDb.SpawnEntry_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
-join {LanternDb.NpcTable} n on se.{LanternDb.SpawnEntry_NpcIdColumn} = n.{LanternDb.Npc_IdColumn}
-left join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
-left join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
-left join {LanternDb.LootDropEntriesTable} lde on 
-    (lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn} and lde.{LanternDb.LootDropEntries_ChanceColumn} > 99.9)
-left join {LanternDb.ItemsTable} i on 
-    (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn} and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Chest} > 0)
-where s2.{LanternDb.Spawn_ZoneColumn} = @zone
-  and (n.{LanternDb.Npc_RaceColumn} < 13 or n.{LanternDb.Npc_RaceColumn} = 128)
-group by n.{LanternDb.Npc_IdColumn}, n.{LanternDb.Npc_NameColumn}, n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}, n.{LanternDb.Npc_FaceColumn},
-    n.{LanternDb.Npc_TextureColumn}, n.{LanternDb.Npc_MeleeTexture1Column}, n.{LanternDb.Npc_MeleeTexture2Column}, n.{LanternDb.Npc_HelmTextureColumn}, 
-    n.{LanternDb.Npc_ChestTextureColumn}, n.{LanternDb.Npc_ArmTextureColumn}, n.{LanternDb.Npc_BracerTextureColumn}, n.{LanternDb.Npc_HandTextureColumn}, 
-    n.{LanternDb.Npc_LegTextureColumn}, n.{LanternDb.Npc_FeetTextureColumn}
-order by n.{LanternDb.Npc_IdColumn}";
+    n.{LanternDb.Npc_FeetTextureColumn},
+    case when n.{LanternDb.Npc_MeleeTexture1Column} > 999 
+        then 0 
+        else n.{LanternDb.Npc_MeleeTexture1Column}
+    end as {LanternDb.Npc_MeleeTexture1Column},
+    pri0.{LanternDb.Items_IdFileColumn} as {LanternDb.PrimaryIdFileAlias},
+    pri0.{LanternDb.Items_ItemTypeColumn} as {LanternDb.PrimaryItemTypeAlias},
+    case when n.{LanternDb.Npc_MeleeTexture2Column} > 999 
+        then 0 
+        else n.{LanternDb.Npc_MeleeTexture2Column}
+    end as {LanternDb.Npc_MeleeTexture2Column},
+    sec0.{LanternDb.Items_IdFileColumn} as {LanternDb.Secondary0IdFileAlias},
+    sec0.{LanternDb.Items_ItemTypeColumn} as {LanternDb.Secondary0ItemTypeAlias},
+    sec1.{LanternDb.Items_IdFileColumn} as {LanternDb.Secondary1IdFileAlias},
+    sec1.{LanternDb.Items_ItemTypeColumn} as {LanternDb.Secondary1ItemTypeAlias}
+from npc_id_list n0
+join {LanternDb.NpcTable} n on n0.id = n.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_ColorColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_ColorColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Chest} > 0)
+        where lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 1
+) ch0 on n.{LanternDb.Npc_IdColumn} = ch0.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary} > 0)
+        where lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 1
+) pri0 on n.{LanternDb.Npc_IdColumn} = pri0.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary + (int)LanternDb.Slots.Secondary} > 0)
+        where n.{LanternDb.Npc_ClassColumn} in {LanternDb.ClassesThatCanDualWield}
+            and lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 2
+) sec0 on n.{LanternDb.Npc_IdColumn} = sec0.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Secondary} > 0
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary} = 0)
+        where lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 1
+) sec1 on n.{LanternDb.Npc_IdColumn} = sec1.{LanternDb.Npc_IdColumn}";
 
         private static readonly string GlobalCharactersInZoneQuery =
-$@"select distinct 
+$@"with npc_id_list as
+(
+    select distinct n.{LanternDb.Npc_IdColumn}
+	from {LanternDb.SpawnTable} s2
+    join {LanternDb.SpawnGroupTable} sg on s2.{LanternDb.Spawn_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
+    join {LanternDb.SpawnEntryTable} se on se.{LanternDb.SpawnEntry_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
+    join {LanternDb.NpcTable} n on se.{LanternDb.SpawnEntry_NpcIdColumn} = n.{LanternDb.Npc_IdColumn}
+    where s2.{LanternDb.Spawn_ZoneColumn} = @zone
+		and n.{LanternDb.Npc_RaceColumn} in {LanternDb.GlobalRaceIds}
+)
+select distinct
     n.{LanternDb.Npc_RaceColumn}, 
     n.{LanternDb.Npc_GenderColumn},
     n.{LanternDb.Npc_FaceColumn} % 255 as {LanternDb.Npc_FaceColumn},
     n.{LanternDb.Npc_TextureColumn},
+    n.{LanternDb.Npc_HelmTextureColumn},
     case when n.{LanternDb.Npc_MeleeTexture1Column} > 999 
         then 0 
         else n.{LanternDb.Npc_MeleeTexture1Column}
     end as {LanternDb.Npc_MeleeTexture1Column},
+    pri0.{LanternDb.Items_IdFileColumn} as {LanternDb.PrimaryIdFileAlias},
+    pri0.{LanternDb.Items_ItemTypeColumn} as {LanternDb.PrimaryItemTypeAlias},
     case when n.{LanternDb.Npc_MeleeTexture2Column} > 999 
         then 0 
         else n.{LanternDb.Npc_MeleeTexture2Column}
     end as {LanternDb.Npc_MeleeTexture2Column},
-    n.{LanternDb.Npc_HelmTextureColumn}
-from {LanternDb.SpawnTable} s2
-join {LanternDb.SpawnGroupTable} sg on s2.{LanternDb.Spawn_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
-join {LanternDb.SpawnEntryTable} se on se.{LanternDb.SpawnEntry_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
-join {LanternDb.NpcTable} n on se.{LanternDb.SpawnEntry_NpcIdColumn} = n.{LanternDb.Npc_IdColumn}
-where s2.{LanternDb.Spawn_ZoneColumn} = @zone
-  and n.{LanternDb.Npc_RaceColumn} in {LanternDb.GlobalRaceIds}
-order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
-";
+    sec0.{LanternDb.Items_IdFileColumn} as {LanternDb.Secondary0IdFileAlias},
+    sec0.{LanternDb.Items_ItemTypeColumn} as {LanternDb.Secondary0ItemTypeAlias},
+    sec1.{LanternDb.Items_IdFileColumn} as {LanternDb.Secondary1IdFileAlias},
+    sec1.{LanternDb.Items_ItemTypeColumn} as {LanternDb.Secondary1ItemTypeAlias}
+from npc_id_list n0
+join {LanternDb.NpcTable} n on n0.id = n.id
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary} > 0)
+        where lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 1
+) pri0 on n.{LanternDb.Npc_IdColumn} = pri0.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary + (int)LanternDb.Slots.Secondary} > 0)
+        where n.{LanternDb.Npc_ClassColumn} in {LanternDb.ClassesThatCanDualWield}
+            and lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 2
+) sec0 on n.{LanternDb.Npc_IdColumn} = sec0.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Secondary} > 0
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary} = 0)
+        where lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 1
+) sec1 on n.{LanternDb.Npc_IdColumn} = sec1.{LanternDb.Npc_IdColumn}
+order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}";
 
-        private static readonly string NpcsWithVariationsQuery =
-$@"select distinct 
+		private static readonly string NpcsWithVariationsQuery =
+$@"with npc_id_list as
+(
+    select distinct n.{LanternDb.Npc_IdColumn}
+	from {LanternDb.SpawnTable} s2
+    join {LanternDb.SpawnGroupTable} sg on s2.{LanternDb.Spawn_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
+    join {LanternDb.SpawnEntryTable} se on se.{LanternDb.SpawnEntry_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
+    join {LanternDb.NpcTable} n on se.{LanternDb.SpawnEntry_NpcIdColumn} = n.{LanternDb.Npc_IdColumn}
+    where s2.{LanternDb.Spawn_ZoneColumn} = @zone
+		and not (n.{LanternDb.Npc_RaceColumn} < 13 or n.{LanternDb.Npc_RaceColumn} = 128)
+		and not n.{LanternDb.Npc_RaceColumn} in {LanternDb.GlobalRaceIds}
+)
+select distinct
     n.{LanternDb.Npc_RaceColumn}, 
     n.{LanternDb.Npc_GenderColumn},
     n.{LanternDb.Npc_FaceColumn} % 255 as {LanternDb.Npc_FaceColumn},
     n.{LanternDb.Npc_TextureColumn},
+    n.{LanternDb.Npc_HelmTextureColumn},
     case when n.{LanternDb.Npc_MeleeTexture1Column} > 999 
         then 0 
         else n.{LanternDb.Npc_MeleeTexture1Column}
     end as {LanternDb.Npc_MeleeTexture1Column},
+    pri0.{LanternDb.Items_IdFileColumn} as {LanternDb.PrimaryIdFileAlias},
+    pri0.{LanternDb.Items_ItemTypeColumn} as {LanternDb.PrimaryItemTypeAlias},
     case when n.{LanternDb.Npc_MeleeTexture2Column} > 999 
         then 0 
         else n.{LanternDb.Npc_MeleeTexture2Column}
     end as {LanternDb.Npc_MeleeTexture2Column},
-    n.{LanternDb.Npc_HelmTextureColumn}
-from {LanternDb.SpawnTable} s2
-join {LanternDb.SpawnGroupTable} sg on s2.{LanternDb.Spawn_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
-join {LanternDb.SpawnEntryTable} se on se.{LanternDb.SpawnEntry_SpawnGroupIdColumn} = sg.{LanternDb.SpawnGroup_IdColumn}
-join {LanternDb.NpcTable} n on se.{LanternDb.SpawnEntry_NpcIdColumn} = n.{LanternDb.Npc_IdColumn}
-where s2.{LanternDb.Spawn_ZoneColumn} = @zone
-  and not (n.{LanternDb.Npc_RaceColumn} < 13 or n.{LanternDb.Npc_RaceColumn} = 127 or n.{LanternDb.Npc_RaceColumn} = 128)
-  and not n.{LanternDb.Npc_RaceColumn} in {LanternDb.GlobalRaceIds}
-  and (n.{LanternDb.Npc_TextureColumn} > 0 or n.{LanternDb.Npc_HelmTextureColumn} > 0 or
-    (n.{LanternDb.Npc_MeleeTexture1Column} > 0 and n.{LanternDb.Npc_MeleeTexture1Column} < 1000) or 
-    (n.{LanternDb.Npc_MeleeTexture2Column} > 0 and n.{LanternDb.Npc_MeleeTexture2Column} < 1000) or
-    (n.{LanternDb.Npc_FaceColumn} > 0 and n.{LanternDb.Npc_FaceColumn} <> 255))
-order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
-";
+    sec0.{LanternDb.Items_IdFileColumn} as {LanternDb.Secondary0IdFileAlias},
+    sec0.{LanternDb.Items_ItemTypeColumn} as {LanternDb.Secondary0ItemTypeAlias},
+    sec1.{LanternDb.Items_IdFileColumn} as {LanternDb.Secondary1IdFileAlias},
+    sec1.{LanternDb.Items_ItemTypeColumn} as {LanternDb.Secondary1ItemTypeAlias}
+from npc_id_list n0
+join {LanternDb.NpcTable} n on n0.id = n.id
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary} > 0)
+        where lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 1
+) pri0 on n.{LanternDb.Npc_IdColumn} = pri0.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary + (int)LanternDb.Slots.Secondary} > 0)
+        where n.{LanternDb.Npc_ClassColumn} in {LanternDb.ClassesThatCanDualWield}
+            and lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 2
+) sec0 on n.{LanternDb.Npc_IdColumn} = sec0.{LanternDb.Npc_IdColumn}
+left join
+(
+    select {LanternDb.Npc_IdColumn}, {LanternDb.Items_IdFileColumn}, {LanternDb.Items_ItemTypeColumn}
+    from (
+        select distinct n.{LanternDb.Npc_IdColumn},
+            lte.{LanternDb.LootTableEntries_Probability},
+            lde.{LanternDb.LootDropEntries_ChanceColumn},
+            i.{LanternDb.Items_IdColumn} as item_id,
+            i.{LanternDb.Items_IdFileColumn},
+            i.{LanternDb.Items_ItemTypeColumn},
+            dense_rank() over (partition by n.{LanternDb.Npc_IdColumn}
+                order by n.{LanternDb.Npc_IdColumn}, 
+                    lte.{LanternDb.LootTableEntries_Probability} desc,
+                    lde.{LanternDb.LootDropEntries_ChanceColumn} desc,
+                    i.{LanternDb.Items_IdColumn}) as rn
+        from npc_id_list n0
+        join {LanternDb.NpcTable} n on n.{LanternDb.Npc_IdColumn} = n0.id
+        join {LanternDb.LootTableTable} lt on n.{LanternDb.Npc_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootTableEntriesTable} lte on lte.{LanternDb.LootTableEntries_LootTableIdColumn} = lt.{LanternDb.LootTable_IdColumn}
+        join {LanternDb.LootDropEntriesTable} lde on lte.{LanternDb.LootTableEntries_LootDropIdColumn} = lde.{LanternDb.LootDropEntries_LootDropIdColumn}
+        join {LanternDb.ItemsTable} i on (lde.{LanternDb.LootDropEntries_ItemIdColumn} = i.{LanternDb.Items_IdColumn}
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Secondary} > 0
+            and i.{LanternDb.Items_SlotsColumn} & {(int)LanternDb.Slots.Primary} = 0)
+        where lde.{LanternDb.LootDropEntries_EquipItemColumn} > 0
+            and length(i.{LanternDb.Items_IdFileColumn}) < 7
+            and lte.{LanternDb.LootTableEntries_Probability} > 24
+            and lde.{LanternDb.LootDropEntries_ChanceColumn} > 49
+        ) s0
+    where rn = 1
+) sec1 on n.{LanternDb.Npc_IdColumn} = sec1.{LanternDb.Npc_IdColumn}
+where n.{LanternDb.Npc_TextureColumn} > 0 or 
+    n.{LanternDb.Npc_HelmTextureColumn} > 0 or 
+	(n.{LanternDb.Npc_FaceColumn} > 0 and not {LanternDb.Npc_FaceColumn} = 255) or 
+	(n.{LanternDb.Npc_MeleeTexture1Column} > 0 and n.{LanternDb.Npc_MeleeTexture1Column} < 1000) or 
+	(n.{LanternDb.Npc_MeleeTexture2Column} > 0 and n.{LanternDb.Npc_MeleeTexture2Column} < 1000) or
+	(pri0.{LanternDb.Items_IdFileColumn} is not null and pri0.{LanternDb.Items_IdFileColumn} > 0) or
+	(sec1.{LanternDb.Items_IdFileColumn} is not null and sec1.{LanternDb.Items_IdFileColumn} > 0)
+order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}";
+
+		private static readonly HashSet<int> TwoHandedItemTypes = new HashSet<int>()
+		{ 1, 4, 5, 35 };
 	}
+
 
     public class Item
     {
@@ -436,14 +820,18 @@ order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
 		public bool TryGetMaterialVariation(string imageName, out int variationIndex, out Color? color)
 		{
             color = null;
-			if (imageName.Contains("he00") && (imageName.EndsWith("1") || imageName.EndsWith("2"))
-                && NpcsWithFaceVariations.Contains(Race))
+			if (imageName.Contains("he00") && (imageName.EndsWith("1") || imageName.EndsWith("2")) &&
+                NpcsWithFaceVariations.Contains(Race) &&
+                // Qeynos Citizen male with a helmet - face not visible
+                !(Race == 71 && Gender == NpcGender.Male && HelmTexture == 1))
 			{
                 variationIndex = Face;
-                return true;
 			}
-            variationIndex = Texture;
-
+            else
+            {
+				variationIndex = Texture;
+			}
+            
             if (variationIndex == 0) return false;
 
             variationIndex -= 1;
@@ -453,7 +841,7 @@ order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
         public bool ShouldSkipMeshGenerationForMaterial(string materialName) => false;
 
         private static readonly HashSet<int> NpcsWithFaceVariations = new HashSet<int>()
-        { 13, 60, 71, 183, 188 };
+        { 71, 183 };
 	}
 
     internal sealed class LanternDb
@@ -467,6 +855,7 @@ order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
         public const string Items_IdFileColumn = "idfile";
         public const string Items_ColorColumn = "color";
         public const string Items_MaterialColumn = "material";
+        public const string Items_ItemTypeColumn = "itemtype";
 
 		// ==== DOORS ====
 		public const string DoorsTable = "doors";
@@ -517,6 +906,7 @@ order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
         public const string Npc_LegTextureColumn = "legtexture";
         public const string Npc_FeetTextureColumn = "feettexture";
         public const string Npc_LootTableIdColumn = "loottable_id";
+        public const string Npc_ClassColumn = "class_";
 
 		// ==== LOOTTABLE ====
 		public const string LootTableTable = "alkabor_loottable";
@@ -528,6 +918,7 @@ order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
 
         public const string LootTableEntries_LootTableIdColumn = "loottable_id";
         public const string LootTableEntries_LootDropIdColumn = "lootdrop_id";
+        public const string LootTableEntries_Probability = "probability";
 
         // ==== LOOTDROPENTRIES ====
         public const string LootDropEntriesTable = "alkabor_lootdrop_entries";
@@ -535,8 +926,16 @@ order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
         public const string LootDropEntries_LootDropIdColumn = "lootdrop_id";
         public const string LootDropEntries_ChanceColumn = "chance";
         public const string LootDropEntries_ItemIdColumn = "item_id";
+        public const string LootDropEntries_EquipItemColumn = "equip_item";
 
+        // ==== ALIASES ====
 		public const string ChestColorAlias = "chestcolor";
+        public const string PrimaryIdFileAlias = "pri_idfile";
+        public const string PrimaryItemTypeAlias = "pri_itemtype";
+        public const string Secondary0IdFileAlias = "sec0_idfile";
+        public const string Secondary0ItemTypeAlias = "sec0_itemtype";
+		public const string Secondary1IdFileAlias = "sec1_idfile";
+		public const string Secondary1ItemTypeAlias = "sec1_itemtype";
 
 		[Flags]
         public enum Slots : int
@@ -568,5 +967,6 @@ order by n.{LanternDb.Npc_RaceColumn}, n.{LanternDb.Npc_GenderColumn}
 
         public const string DoorsToExclude = "(50, 53, 54, 55)"; // 50, 53, 54 are invis, 55 is not classic
         public const string GlobalRaceIds = "(14, 60, 75, 108, 120, 141, 161, 209, 210, 211, 212)";
+        public const string ClassesThatCanDualWield = "(1, 4, 7, 8, 9, 20, 23, 26, 27, 28)";
     }
 }

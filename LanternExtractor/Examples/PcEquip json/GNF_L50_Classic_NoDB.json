@@ -1,0 +1,44 @@
+{
+  "Face": 3,
+  "RaceGender": "GNF",
+  "Primary ID": "IT45",
+  "Primary Name": "",
+  "Secondary ID": "IT56",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 1,
+    "Color": null
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 15,
+    "Color": "#af0a32"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Feet": {
+    "Name": "Carmine Boots",
+    "Material": 1,
+    "Color": null
+  }
+}

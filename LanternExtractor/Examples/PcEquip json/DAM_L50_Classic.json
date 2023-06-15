@@ -1,0 +1,51 @@
+{
+      "Face": 4,
+      "RaceGender": "DAM",
+      "Primary ID": "",
+      "Primary Name":  "Rod of Insidious Glamour",
+      "Secondary ID": "",
+      "Secondary Name":  "Cryosilk Webshield",
+      "Head":
+      {
+          "Name": "Insidious Halo",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Golden Efreeti Gauntlets",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Insidious Robe",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Insidious Slippers",
+          "Material": 0,
+          "Color": null
+      }
+}

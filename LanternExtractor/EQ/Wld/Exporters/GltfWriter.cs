@@ -170,7 +170,25 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {"pos", "Default"},
             {"drf", "Pose"}
         };
-        private static readonly float ZoneScaleMultiplier = 0.1f;
+        private static readonly IDictionary<string, int> AnimatedDoorObjectOpenTypes = new Dictionary<string, int>()
+        {
+            {"akalight4gem", 100},
+            {"gmspin", 100},
+            {"moltglob100", 100},
+            {"mooglob100", 100},
+            {"nerjewel", 100},
+            {"norglob100", 100},
+            {"qeylamp", 100},
+            {"sblight101", 100},
+            {"shaft", 100},
+            {"slff200", 100},
+            {"airwmbld", 105},
+            {"airwmblds", 105},
+            {"akawheel", 105},
+            {"wmblade", 105}
+        };
+
+        private static readonly float ZoneScaleMultiplier = 0.2f;
         private static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
         private static readonly Matrix4x4 CorrectedWorldMatrix = MirrorXAxisMatrix * Matrix4x4.CreateScale(ZoneScaleMultiplier);
         private static readonly Matrix4x4 CorrectedSingularActorMatrix = Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
@@ -325,10 +343,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 						{
 							material = alternateSkins[variationIndex];
 						}
-
-                        baseColor = color;
                     }
-                }
+					baseColor = color;
+				}
                 var materialName = GetMaterialName(material);
 
                 if (_meshMaterialsToSkip.Contains(materialName) || (characterModel != null && characterModel.ShouldSkipMeshGenerationForMaterial(materialName)))
@@ -384,6 +401,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     AddAnimatedMeshMorphTargets(mesh, gltfMesh, meshName, transformMatrix, gltfVertexPositionToWldVertexIndex);
                     // mesh added to scene in ^ method
                 }
+                else if (AnimatedDoorObjectOpenTypes.TryGetValue(meshName, out var openType))
+                {
+                    var node = GetDoorAnimationNodeForOpenType(openType, meshName, transformMatrix);
+					_scene.AddRigidMesh(gltfMesh, node);
+				}
                 else
                 {
                     _scene.AddRigidMesh(gltfMesh, transformMatrix);
@@ -758,6 +780,19 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 var convertedImagePath = ImageAlphaConverter.AddAlphaToImage(imagePath, eqMaterial.ShaderType);
                 var newImageName = Path.GetFileNameWithoutExtension(convertedImagePath);
                 imageBuilder = ImageBuilder.From(new MemoryImage(convertedImagePath), newImageName);
+
+				// No support for animated textures, but in case the user wishes to add the frames
+				// somehow in post-process, add alpha to all frames of the animated texture
+                if ((eqMaterial.BitmapInfoReference?.BitmapInfo.AnimationDelayMs ?? 0) > 0)
+                {
+                    var animationFrameBitmaps = eqMaterial.BitmapInfoReference.BitmapInfo.BitmapNames;
+					for (var i = 1; i < animationFrameBitmaps.Count(); i++)
+                    {
+                        var frameImageFile = animationFrameBitmaps[i].GetExportFilename();
+                        var frameImageFilePath = Path.Combine(textureImageFolder, frameImageFile);
+                        ImageAlphaConverter.AddAlphaToImage(frameImageFilePath, eqMaterial.ShaderType);
+                    }
+                }
             }
             else
             {
@@ -992,6 +1027,34 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
         }
 
+        private NodeBuilder GetDoorAnimationNodeForOpenType(int openType, string meshName, Matrix4x4 transformMatrix)
+        {
+			// For now, this is just windmill blades (105) and some other spinning
+            // objects (100) like windmill shafts and akanon lights. The only other
+            // doors that automatically move are a few traps in sol A and B
+			var node = new NodeBuilder(meshName);
+            node.LocalTransform = transformMatrix;
+			// Rotation part of the local transform is being lost with the animation -
+			// extract it out and multiply it with the animation steps
+			Matrix4x4.Decompose(transformMatrix, out _, out var baseRotation, out _);
+			switch (openType)
+            {
+                case 100:
+					node.UseRotation("Default")
+	                    .WithPoint(0f, baseRotation)
+	                    .WithPoint(4.25f, baseRotation * Quaternion.CreateFromAxisAngle(Vector3.UnitY, -(float)Math.PI))
+	                    .WithPoint(8.5f, baseRotation * Quaternion.CreateFromAxisAngle(Vector3.UnitY, -(float)(2 * Math.PI)));
+                    return node;
+                case 105:
+					node.UseRotation("Default")
+	                    .WithPoint(0f, baseRotation)
+	                    .WithPoint(4.25f, baseRotation * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, (float)Math.PI))
+	                    .WithPoint(8.5f, baseRotation * Quaternion.CreateFromAxisAngle(Vector3.UnitZ, (float)(2 * Math.PI)));
+                    return node;
+                default:
+                    return node;
+			}
+        }
         private void ApplyBoneTransformation(NodeBuilder boneNode, DataTypes.BoneTransform boneTransform, 
             string animationKey, int timeMs, bool staticPose)
         {
@@ -1279,9 +1342,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
     {
         public static string AddAlphaToImage(string filePath, ShaderType shaderType)
         {
-            var suffix = $"_{MaterialList.GetMaterialPrefix(shaderType).TrimEnd('_')}";
-            var newFileName = $"{Path.GetFileNameWithoutExtension(filePath)}{suffix}{Path.GetExtension(filePath)}";
-            var newFilePath = Path.Combine(Path.GetDirectoryName(filePath), newFileName);
+            // var suffix = $"_{MaterialList.GetMaterialPrefix(shaderType).TrimEnd('_')}";
+            var prefix = MaterialList.GetMaterialPrefix(shaderType);
+			// var newFileName = $"{Path.GetFileNameWithoutExtension(filePath)}{suffix}{Path.GetExtension(filePath)}";
+			var newFileName = $"{prefix}{Path.GetFileNameWithoutExtension(filePath)}{Path.GetExtension(filePath)}";
+			var newFilePath = Path.Combine(Path.GetDirectoryName(filePath), newFileName);
 
             if (File.Exists(newFilePath)) return newFilePath;
 

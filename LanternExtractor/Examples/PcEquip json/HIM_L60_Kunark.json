@@ -1,0 +1,51 @@
+{
+      "Face": 3,
+      "RaceGender": "HIM",
+      "Primary ID": "",
+      "Primary Name":  "Water Sprinkler of Nem Ankh",
+      "Secondary ID": "",
+      "Secondary Name":  "Sarnak Battle Shield",
+      "Head":
+      {
+          "Name": "Iksar Hide Cap",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Ethereal Mist",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Donal",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Donal",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Ethereal Mist",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Ethereal Mist",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Donal",
+          "Material": 0,
+          "Color": null
+      }
+}

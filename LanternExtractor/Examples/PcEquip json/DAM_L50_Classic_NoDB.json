@@ -1,0 +1,44 @@
+{
+  "Face": 4,
+  "RaceGender": "DAM",
+  "Primary ID": "IT51",
+  "Primary Name": "",
+  "Secondary ID": "IT210",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#d5be00"
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 12,
+    "Color": "#0a32c8"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 1,
+    "Color": null
+  }
+}

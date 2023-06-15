@@ -15,7 +15,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
     public static class PlayerCharacterGltfExporter
     { 
         public static void ExportPlayerCharacter(PlayerCharacterModel pcEquipment, WldFileCharacters wldChrFile, WldFileEquipment wldEqFile,
-            ILogger logger, Settings settings)
+            ILogger logger, Settings settings, string pcExportName)
         {
             var actorName = pcEquipment.RaceGender;
             var lookupName = $"{actorName}_ACTORDEF";
@@ -31,15 +31,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
 			pcEquipment.FixHelmMaterial();
 
-			var exportFolder = Path.Combine(wldChrFile.RootExportFolder, actorName);
+			var exportFolder = Path.Combine(wldChrFile.RootExportFolder, pcExportName);
 
             AddMeshDataToGltfWriter(pcEquipment, gltfWriter, wldEqFile, skeleton,
                 exportFolder, logger, settings);
 
-			var exportFilePath = Path.Combine(exportFolder, $"{FragmentNameCleaner.CleanName(skeleton)}.gltf");
+			var exportFilePath = Path.Combine(exportFolder, $"{pcExportName}.gltf");
             gltfWriter.WriteAssetToFile(exportFilePath, false, skeleton.ModelBase, true);
 
-            var jsonOutFilePath = Path.Combine(exportFolder, $"PcEquip_{DateTime.Now:yyyyMMddhhmmss}.json");
+            var jsonOutFilePath = Path.Combine(exportFolder, $"{pcExportName}_{DateTime.Now:yyyyMMddhhmmss}.json");
             var serializerOptions = new JsonSerializerOptions() { WriteIndented = true };
             serializerOptions.Converters.Add(new ColorJsonConverter());
             File.WriteAllText(jsonOutFilePath, JsonSerializer.Serialize(pcEquipment, serializerOptions));
@@ -172,7 +172,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
 				(secondaryMeshOrSkeleton, pcEquipment.Secondary_ID, skeleton, secondaryAttachBone, gltfWriter, ref boneIndexOffset);
 			GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
-				(veliousHelm, veliousHelmModelId, skeleton, "he", gltfWriter, ref boneIndexOffset);
+				(veliousHelm, veliousHelmModelId, skeleton, "he", gltfWriter, ref boneIndexOffset, pcEquipment.GetVeliousHelmCharacter());
 
 			gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", true, true);
 
@@ -292,6 +292,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			}
 		}
 
+        public ICharacterModel GetVeliousHelmCharacter()
+        {
+            return new VeliousHelmCharacter(Head.Color);
+        }
+
 		private Equipment GetEquipmentForImageName(string imageName, out bool isChest)
 		{
 			isChest = false;
@@ -301,12 +306,17 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 isChest = true;
                 return Chest;
             }
-            if (imageName.Contains("he00") && (imageName.EndsWith("1") || imageName.EndsWith("2")))
+
+            if (imageName.Contains("he00"))
             {
-                return new Equipment() { Material = Face };
+                var headEq = new Equipment();
+                if (imageName.EndsWith("1") || imageName.EndsWith("2"))
+                {
+                    headEq.Material = Face;
+                }
+                return headEq;
             }
-            if (HeadImagesWithNoVariant.Where(i => imageName.StartsWith(i)).Any() ||
-                (Head.Velious && imageName.Contains(RaceGenderToVeliousHelmModel[RaceGender].ToLower())))
+            if (HeadImagesWithNoVariant.Where(i => imageName.StartsWith(i)).Any())
             {
                 return new Equipment() { Material = 0, Color = Head?.Color };
             }
@@ -413,6 +423,24 @@ namespace LanternExtractor.EQ.Wld.Exporters
             "magecap"
         };
     }
+
+    public class VeliousHelmCharacter : ICharacterModel
+    {
+        private readonly DColor? _color;
+        public VeliousHelmCharacter(DColor? color)
+        {
+            _color = color;
+        }
+
+        public bool ShouldSkipMeshGenerationForMaterial(string materialName) => false;
+
+		public bool TryGetMaterialVariation(string imageName, out int variationIndex, out DColor? color)
+		{
+            variationIndex = 0;
+            color = _color;
+            return false;
+		}
+	}
 
 	public class CharacterVariationComparer : IEqualityComparer<PlayerCharacterModel>
 	{

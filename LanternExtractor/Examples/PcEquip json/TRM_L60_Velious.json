@@ -1,0 +1,51 @@
+{
+      "Face": 7,
+      "RaceGender": "TRM",
+      "Primary ID": "",
+      "Primary Name":  "Spirit Talker",
+      "Secondary ID": "",
+      "Secondary Name":  "Buckler of Insight",
+      "Head":
+      {
+          "Name": "Spirit Talker",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Wolf Caller",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Wolf Caller",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Enchanted Kelp",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Wolf Caller",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Spirit Weaver",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Wolf Caller",
+          "Material": 0,
+          "Color": null
+      }
+}

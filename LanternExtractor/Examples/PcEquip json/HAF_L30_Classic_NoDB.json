@@ -1,0 +1,44 @@
+{
+  "Face": 5,
+  "RaceGender": "HAF",
+  "Primary ID": "IT34",
+  "Primary Name": "",
+  "Secondary ID": "IT15",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#0101c8"
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#0101c8"
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#c96607"
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#0101c8"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 2,
+    "Color": "#323232"
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#0101c8"
+  }
+}

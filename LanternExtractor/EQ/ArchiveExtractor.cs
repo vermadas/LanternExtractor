@@ -148,7 +148,7 @@ namespace LanternExtractor.EQ
             }
         }
 
-		public static void InitWldsForPlayerCharacterGltfExport(PlayerCharacterModel pcEquipment, string rootFolder, ILogger logger, Settings settings, out WldFileEquipment mainWldEqFile)
+		public static void InitWldsForPlayerCharacterGltfExport(PlayerCharacterModel pcEquipment, string rootFolder, string pcExportFolder, ILogger logger, Settings settings, out WldFileEquipment mainWldEqFile)
 		{
 			mainWldEqFile = null;
 			if (!pcEquipment.Validate(out var errorMessage))
@@ -159,12 +159,12 @@ namespace LanternExtractor.EQ
 
 			var actorName = pcEquipment.RaceGender;
 			var includeList = GlobalReference.CharacterWld.GetActorImageNames(actorName).ToList();
-			var exportFolder = Path.Combine(rootFolder, actorName, "Textures");
+			var exportFolder = Path.Combine(rootFolder, pcExportFolder, "Textures");
 			WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList, true);
 			includeList.Clear();
 			if (!string.IsNullOrEmpty(pcEquipment.Primary_ID) || !string.IsNullOrEmpty(pcEquipment.Secondary_ID) || pcEquipment.Head.Velious)
 			{
-				mainWldEqFile = InitCombinedEquipmentWld(logger, settings, actorName, rootFolder);
+				mainWldEqFile = InitCombinedEquipmentWld(logger, settings, pcExportFolder, rootFolder);
 				if (pcEquipment.Primary_ID != null)
 				{
 					includeList.AddRange(mainWldEqFile.GetActorImageNames(pcEquipment.Primary_ID));

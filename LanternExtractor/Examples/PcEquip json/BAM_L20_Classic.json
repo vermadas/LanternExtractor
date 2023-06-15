@@ -1,0 +1,51 @@
+{
+      "Face": 6,
+      "RaceGender": "BAM",
+      "Primary ID": "",
+      "Primary Name":  "Bronze Short Sword",
+      "Secondary ID": "",
+      "Secondary Name":  "Bronze Morning Star",
+      "Head":
+      {
+          "Name": "Chain Coif",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Banded Bracer",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Bronze Vambraces",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Large Plate Gauntlets",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Bronze Breastplate",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Bronze Greaves",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Banded Boots",
+          "Material": 0,
+          "Color": null
+      }
+}

@@ -1,0 +1,44 @@
+{
+  "Face": 6,
+  "RaceGender": "OGM",
+  "Primary ID": "IT145",
+  "Primary Name": "",
+  "Secondary ID": "",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": true,
+    "Name": "",
+    "Material": 0,
+    "Color": "#640a0a"
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 19,
+    "Color": null
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 22,
+    "Color": "#640a0a"
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 3,
+    "Color": null
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#321919"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 22,
+    "Color": "#640a0a"
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 22,
+    "Color": "#640a0a"
+  }
+}

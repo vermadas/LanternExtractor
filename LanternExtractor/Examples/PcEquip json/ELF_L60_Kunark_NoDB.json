@@ -1,0 +1,44 @@
+{
+  "Face": 2,
+  "RaceGender": "ELF",
+  "Primary ID": "IT150",
+  "Primary Name": "",
+  "Secondary ID": "IT28",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 1,
+    "Color": "#0ec5c5"
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 2,
+    "Color": "#0a320a"
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 17,
+    "Color": "#1e008c"
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#d5be00"
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 2,
+    "Color": "#0a320a"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 2,
+    "Color": "#0a320a"
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 0,
+    "Color": "#ff9205"
+  }
+}

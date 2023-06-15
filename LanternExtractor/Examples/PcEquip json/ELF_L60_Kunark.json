@@ -1,0 +1,51 @@
+{
+      "Face": 2,
+      "RaceGender": "ELF",
+      "Primary ID": "",
+      "Primary Name":  "Nature Walkers Scimitar",
+      "Secondary ID": "",
+      "Secondary Name":  "Book of Obulus",
+      "Head":
+      {
+          "Name": "Iksar Hide Cap",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Elder Spiritist",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Nathsar Vambraces",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Golden Efreeti Gauntlets",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Elder Spiritist",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Elder Spiritist",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Sarnak Hide Boots",
+          "Material": 0,
+          "Color": null
+      }
+}

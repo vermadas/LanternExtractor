@@ -1,0 +1,51 @@
+{
+      "Face": 6,
+      "RaceGender": "OGM",
+      "Primary ID": "",
+      "Primary Name":  "Innoruuk's Curse",
+      "Secondary ID": "",
+      "Secondary Name":  "",
+      "Head":
+      {
+          "Name": "Custom Malevolent Crown",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Noctivagant Bracer",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Malevolent Vambraces",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Do`Vassirs Gauntlets",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Chestplate of Fiery Might",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Malevolent Greaves",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Malevolent Boots",
+          "Material": 0,
+          "Color": null
+      }
+}

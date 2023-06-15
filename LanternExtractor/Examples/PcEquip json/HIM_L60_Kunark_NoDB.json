@@ -1,0 +1,44 @@
+{
+  "Face": 3,
+  "RaceGender": "HIM",
+  "Primary ID": "IT156",
+  "Primary Name": "",
+  "Secondary ID": "IT221",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 1,
+    "Color": "#0ec5c5"
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#733273"
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#6e6e84"
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#464654"
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#733273"
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#733273"
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 3,
+    "Color": "#3c3c4b"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "Face": 3,
+  "RaceGender": "IKF",
+  "Primary ID": "",
+  "Primary Name": "",
+  "Secondary ID": "",
+  "Secondary Name": "",
+  "Head": {
+    "Velious": false,
+    "Name": "",
+    "Material": 0,
+    "Color": null
+  },
+  "Wrist": {
+    "Name": "",
+    "Material": 7,
+    "Color": "#c96607"
+  },
+  "Arms": {
+    "Name": "",
+    "Material": 4,
+    "Color": null
+  },
+  "Hands": {
+    "Name": "",
+    "Material": 4,
+    "Color": null
+  },
+  "Chest": {
+    "Name": "",
+    "Material": 1,
+    "Color": null
+  },
+  "Legs": {
+    "Name": "",
+    "Material": 1,
+    "Color": null
+  },
+  "Feet": {
+    "Name": "",
+    "Material": 4,
+    "Color": null
+  }
+}

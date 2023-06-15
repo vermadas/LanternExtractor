@@ -1,0 +1,51 @@
+{
+      "Face": 3,
+      "RaceGender": "IKF",
+      "Primary ID": "",
+      "Primary Name":  "",
+      "Secondary ID": "",
+      "Secondary Name":  "",
+      "Head":
+      {
+          "Name": "Cured Silk Headband",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Shackle of Bronze",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Crescent Arm Wraps",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Crescent Fighting Gloves",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Burynai Hide Tunic",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Sarnak-hide Leggings",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Crescent Slippers",
+          "Material": 0,
+          "Color": null
+      }
+}

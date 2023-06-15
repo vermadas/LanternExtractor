@@ -1,0 +1,51 @@
+{
+      "Face": 5,
+      "RaceGender": "HAF",
+      "Primary ID": "",
+      "Primary Name":  "Gladius",
+      "Secondary ID": "",
+      "Secondary Name":  "Brahhms Horn",
+      "Head":
+      {
+          "Name": "Topknot Headband",
+          "Material": 0,
+          "Color": null,
+          "Velious": false
+      },
+      "Wrist":
+      {
+          "Name": "Lambent Bracers",
+          "Material": 0,
+          "Color": null
+      },
+      "Arms":
+      {
+          "Name": "Lambent Vambraces",
+          "Material": 0,
+          "Color": null
+      },
+      "Hands":
+      {
+          "Name": "Bronze Gauntlets",
+          "Material": 0,
+          "Color": null
+      },
+      "Chest":
+      {
+          "Name": "Lambent Breastplate",
+          "Material": 0,
+          "Color": null
+      },
+      "Legs":
+      {
+          "Name": "Blackened Iron Legplates",
+          "Material": 0,
+          "Color": null
+      },
+      "Feet":
+      {
+          "Name": "Lambent Boots",
+          "Material": 0,
+          "Color": null
+      }
+}

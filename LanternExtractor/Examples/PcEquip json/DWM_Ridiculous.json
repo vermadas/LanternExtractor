@@ -1,0 +1,51 @@
+{
+      "Face": 2,
+      "RaceGender": "DWM",
+      "Primary ID": "IT153",
+      "Primary Name":  "",
+      "Secondary ID": "IT198",
+      "Secondary Name":  "",
+      "Head":
+      {
+          "Name": "",
+          "Material": 0,
+          "Color": "HotPink",
+          "Velious": true
+      },
+      "Wrist":
+      {
+          "Name": "",
+          "Material": 3,
+          "Color": "GoldenRod"
+      },
+      "Arms":
+      {
+          "Name": "",
+          "Material": 17,
+          "Color": "LimeGreen"
+      },
+      "Hands":
+      {
+          "Name": "",
+          "Material": 19,
+          "Color": "Turquoise"
+      },
+      "Chest":
+      {
+          "Name": "",
+          "Material": 18,
+          "Color": "#0000FF"
+      },
+      "Legs":
+      {
+          "Name": "",
+          "Material": 2,
+          "Color": "Maroon"
+      },
+      "Feet":
+      {
+          "Name": "",
+          "Material": 1,
+          "Color": "#010101"
+      }
+}

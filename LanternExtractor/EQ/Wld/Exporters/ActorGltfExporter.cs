@@ -530,22 +530,47 @@ namespace LanternExtractor.EQ.Wld.Exporters
 					wldFile.WldType == WldType.Characters, "pos", 0);
                 preShiftedVerticesForMeshes.Add(mesh.Name, originalVertices);
 			}
+            var boneMeshes = new List<Mesh>();
+			for (int i = 0; i < skeleton.Skeleton.Count; i++)
+			{
+				var mesh = skeleton.Skeleton[i]?.MeshReference?.Mesh;
+				if (mesh != null)
+				{
+					var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
+						wldFile.WldType == WldType.Characters, "pos", 0, i, true);
+                    preShiftedVerticesForMeshes.Add(mesh.Name, originalVertices);
+                    boneMeshes.Add(mesh);
+				}
+			}
 
 			foreach (var npc in npcVariations)
 			{
-				var meshes = new List<Mesh> { skeleton.Meshes[0] };
-				if (npc.HelmTexture > 0 && skeleton.SecondaryMeshes.Any())
-				{
-					meshes.Add(skeleton.SecondaryMeshes[npc.HelmTexture - 1]);
+                if (skeleton.Meshes != null && skeleton.Meshes.Any())
+                {
+                    var meshes = new List<Mesh>() { skeleton.Meshes[0] };
+					if (npc.HelmTexture > 0 && skeleton.SecondaryMeshes.Any())
+					{
+						meshes.Add(skeleton.SecondaryMeshes[npc.HelmTexture - 1]);
+					}
+					else if (skeleton.Meshes.Count > 1)
+					{
+						meshes.Add(skeleton.Meshes[1]);
+					}
+					foreach (var mesh in meshes)
+					{
+						variationGltfWriters[npc].AddFragmentData(mesh, skeleton, -1, npc);
+					}
 				}
-				else if (skeleton.Meshes.Count > 1)
-				{
-					meshes.Add(skeleton.Meshes[1]);
-				}
-
-				foreach (var mesh in meshes)
-				{
-					variationGltfWriters[npc].AddFragmentData(mesh, skeleton, -1, npc);
+                else
+                {
+					for (int i = 0; i < skeleton.Skeleton.Count; i++)
+					{
+						var mesh = skeleton.Skeleton[i]?.MeshReference?.Mesh;
+						if (mesh != null)
+						{
+							variationGltfWriters[npc].AddFragmentData(mesh, skeleton, i, npc);
+						}
+					}
 				}
 
 				var boneIndexOffset = skeleton.Skeleton.Count;
@@ -565,7 +590,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 				}
 			}
 
-			foreach (var mesh in skeleton.Meshes.Union(skeleton.SecondaryMeshes))
+			foreach (var mesh in skeleton.Meshes.Union(skeleton.SecondaryMeshes).Union(boneMeshes))
 			{
                 mesh.Vertices = preShiftedVerticesForMeshes[mesh.Name];
 			}

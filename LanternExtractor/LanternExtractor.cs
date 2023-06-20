@@ -49,9 +49,8 @@ namespace LanternExtractor
 
             DateTime start = DateTime.Now;
 
-#if DEBUG
-//            args = new string[] { "qeynos" };
-#endif
+//            args = new string[] { "citymist" };
+
             if (args.Length == 0 || args.Length > 2 || 
                 (args.Length == 2 && !args[0].Equals("pc", StringComparison.InvariantCultureIgnoreCase)))
             {

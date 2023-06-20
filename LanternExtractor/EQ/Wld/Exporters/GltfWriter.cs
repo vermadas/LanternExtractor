@@ -18,6 +18,7 @@ using Animation = LanternExtractor.EQ.Wld.DataTypes.Animation;
 using System.Drawing.Imaging;
 using LanternExtractor.Infrastructure.Logger;
 using LanternExtractor.Infrastructure;
+using SharpGLTF.Transforms;
 
 namespace LanternExtractor.EQ.Wld.Exporters
 {
@@ -188,6 +189,23 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {"wmblade", 105}
         };
 
+        private static readonly ISet<string> AnimatedMeshesSharpGltfWillNotExportMorphTargets = new HashSet<string>()
+        {
+            "cmplant101",
+            "cmplant102",
+            "drgrass101",
+            "drgrass102",
+            "jnplant101",
+            "otplant101",
+            "otplant101b",
+            "otplant101c",
+            "otplant102",
+            "otplant102b",
+            "otplant102c",
+            "otplant103",
+            "otplant103b",
+            "otplant103c"
+        };
         private static readonly float ZoneScaleMultiplier = 0.2f;
         private static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
         private static readonly Matrix4x4 CorrectedWorldMatrix = MirrorXAxisMatrix * Matrix4x4.CreateScale(ZoneScaleMultiplier);
@@ -200,9 +218,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<string, IMeshBuilder<MaterialBuilder>> _sharedMeshes;
         private IDictionary<string, List<NodeBuilder>> _skeletons;
         private IDictionary<string, List<(string, string)>> _skeletonChildrenAttachBones;
-        private IEnumerable<IGrouping<UniqueLight, LightInstance>> _lightGroups;
         private bool _separateTwoFacedTriangles;
-        private float _lightIntensityMultiplier;
 
         public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, bool separateTwoFacedTriangles = false)
         {
@@ -300,7 +316,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 if (generationMode == ModelGenerationMode.Separate)
                 {
-                    _scene.AddRigidMesh(existingMesh, transformMatrix);
+                    _scene.AddRigidMesh(existingMesh, new AffineTransform(transformMatrix));
                 }
                 return;
             }
@@ -396,7 +412,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             if (generationMode == ModelGenerationMode.Separate)
             {
-                if (mesh.AnimatedVerticesReference != null)
+                if (mesh.AnimatedVerticesReference != null &&
+                        !AnimatedMeshesSharpGltfWillNotExportMorphTargets.Contains(FragmentNameCleaner.CleanName(mesh, true)))
                 {
                     AddAnimatedMeshMorphTargets(mesh, gltfMesh, meshName, transformMatrix, gltfVertexPositionToWldVertexIndex);
                     // mesh added to scene in ^ method
@@ -408,7 +425,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 				}
                 else
                 {
-                    _scene.AddRigidMesh(gltfMesh, transformMatrix);
+                    _scene.AddRigidMesh(gltfMesh, new AffineTransform(transformMatrix));
                     _sharedMeshes[meshName] = gltfMesh;
                 }              
             }
@@ -490,9 +507,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public void AddLightInstances(IEnumerable<LightInstance> lightInstances, float lightIntensityMultiplier)
         {
             var groupedLightInstances = lightInstances.GroupBy(i => new UniqueLight(i));
-            _lightGroups = groupedLightInstances;
-            _lightIntensityMultiplier = lightIntensityMultiplier;
-			/* https://github.com/vpenades/SharpGLTF/issues/168
+
             foreach (var uniqueLightGroups in groupedLightInstances)
             {
                 var uniqueLight = uniqueLightGroups.Key;
@@ -507,35 +522,13 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var position = lightInstance.Position.ToVector3(swapYandZ: true);
                     var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix;
                     Matrix4x4.Decompose(translationMatrix, out _, out _, out var translation);
-                    _scene.AddLight(light, new AffineTransform(Quaternion.Identity, translation));
+					var lightName = lightInstance.LightReference?.LightSource?.Name;
+					var node = new NodeBuilder(lightName != null ? lightName.Split('_')[0] : "");
+					// node.WithTranslation(translation) makes VS complain for some reason
+					node.LocalTransform = node.LocalTransform.WithTranslation(translation);
+					_scene.AddLight(light, node);
                 }
             }
-            */
-		}
-
-		// https://github.com/vpenades/SharpGLTF/issues/168
-		private void AddLightInstancesWorkaround(SharpGLTF.Schema2.ModelRoot modelRoot)
-        {
-			foreach (var uniqueLightGroups in _lightGroups)
-			{
-				var uniqueLight = uniqueLightGroups.Key;
-                var light = modelRoot.CreatePunctualLight(SharpGLTF.Schema2.PunctualLightType.Point);
-                light.Color = uniqueLight.Color;
-                light.Intensity = uniqueLight.Radius * _lightIntensityMultiplier;
-                // light.Range = uniqueLight.Radius * ZoneScaleMultiplier;
-
-				foreach (var lightInstance in uniqueLightGroups)
-				{
-					var position = lightInstance.Position.ToVector3(swapYandZ: true);
-					var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix;
-					Matrix4x4.Decompose(translationMatrix, out _, out _, out var translation);
-                    var lightName = lightInstance.LightReference?.LightSource?.Name;
-                    var node = modelRoot.DefaultScene.CreateNode(lightName != null ? lightName.Split('_')[0] : "");
-                    // node.WithTranslation(translation) makes VS complain for some reason
-                    node.LocalTransform = node.LocalTransform.WithTranslation(translation);
-                    node.PunctualLight = light;
-				}
-			}
 		}
 
         public void AddCombinedMeshToScene(
@@ -575,7 +568,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             if (skeletonName == null || !_skeletons.TryGetValue(skeletonName, out var skeletonNodes))
             {
-                _scene.AddRigidMesh(combinedMesh, worldTransformMatrix);
+                _scene.AddRigidMesh(combinedMesh, new AffineTransform(worldTransformMatrix));
             }
             else
             {
@@ -613,10 +606,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			var outputFilePath = FixFilePath(fileName);
             var model = _scene.ToGltf2();
 
-            if (_lightGroups != null && _lightGroups.Any())
-            {
-                AddLightInstancesWorkaround(model);
-            }
             if (_exportFormat == GltfExportFormat.GlTF)
             {
                 if (!useExistingImages)
@@ -649,8 +638,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                             return $"Textures/{Path.GetFileName(imageSourcePath)}";
                         }
                     };
-
-                    model.SaveGLTF(outputFilePath, writeSettings);
+					model.SaveGLTF(outputFilePath, writeSettings);
                 }
             }
             else // Glb
@@ -964,28 +952,28 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             var exportJoints = boneIndex > -1 && isSkinned;
             IVertexBuilder vertexBuilder;
-            if (color == null && !exportJoints)
-            {
-                vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>
-                    ((position, normal), uv);
-            }
-            else if (color == null && exportJoints)
-            {
-                vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexTexture1, VertexJoints4>
-                    ((position, normal), uv, new VertexJoints4(boneIndex));
-            }
-            else if (color != null && !exportJoints)
-            {
-                vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexColor1Texture1, VertexEmpty>
-                    ((position, normal), (color.Value, uv));
-            }
-            else // (color != null && exportJoints)
-            {
-                vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexColor1Texture1, VertexJoints4>
-                    ((position, normal), (color.Value, uv), new VertexJoints4(boneIndex));
-            }
+			if (color == null && !exportJoints)
+			{
+				vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>
+					((position, normal), uv);
+			}
+			else if (color == null && exportJoints)
+			{
+				vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexTexture1, VertexJoints4>
+					((position, normal), uv, new VertexJoints4(boneIndex));
+			}
+			else if (color != null && !exportJoints)
+			{
+				vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexColor1Texture1, VertexEmpty>
+					((position, normal), (color.Value, uv));
+			}
+			else // (color != null && exportJoints)
+			{
+				vertexBuilder = new VertexBuilder<VertexPositionNormal, VertexColor1Texture1, VertexJoints4>
+					((position, normal), (color.Value, uv), new VertexJoints4(boneIndex));
+			}
 
-            return (VertexBuilder<TvG, TvM, TvS>)vertexBuilder;
+			return (VertexBuilder<TvG, TvM, TvS>)vertexBuilder;
         }
 
         private void AddAnimatedMeshMorphTargets(Mesh mesh, IMeshBuilder<MaterialBuilder> gltfMesh,
@@ -1002,7 +990,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                 foreach (var vertexGeometry in gltfVertexPositionToWldVertexIndex.Keys)
                 {
-                    var wldVertexPositionForFrame = vertexPositionsForFrame[gltfVertexPositionToWldVertexIndex[vertexGeometry]];
+                    var vertexIndex = gltfVertexPositionToWldVertexIndex[vertexGeometry];
+                    var wldVertexPositionForFrame = vertexPositionsForFrame[vertexIndex];
                     var newPosition = (wldVertexPositionForFrame + mesh.Center).ToVector3(true);
                     vertexGeometry.TryGetNormal(out var originalNormal);
                     morphTarget.SetVertex(vertexGeometry, new VertexPositionNormal(newPosition, originalNormal));
@@ -1012,7 +1001,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var node = new NodeBuilder(meshName);
-            node.LocalTransform =  transformMatrix;
+            node.LocalTransform = new AffineTransform(transformMatrix);
 
             var instance = _scene.AddRigidMesh(gltfMesh, node);
             instance.Content.UseMorphing().SetValue(weights.ToArray());
@@ -1033,7 +1022,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             // objects (100) like windmill shafts and akanon lights. The only other
             // doors that automatically move are a few traps in sol A and B
 			var node = new NodeBuilder(meshName);
-            node.LocalTransform = transformMatrix;
+            node.LocalTransform = new AffineTransform(transformMatrix);
 			// Rotation part of the local transform is being lost with the animation -
 			// extract it out and multiply it with the animation steps
 			Matrix4x4.Decompose(transformMatrix, out _, out var baseRotation, out _);

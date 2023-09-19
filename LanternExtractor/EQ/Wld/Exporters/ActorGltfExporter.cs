@@ -217,7 +217,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var addedMeshOnce = false;
 
                     foreach (var instance in instances)
-                    {
+                    {>>
                         if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
 
                         if (!addedMeshOnce ||
@@ -632,28 +632,47 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     skySkeletonMeshNames.Add(b.MeshReference.Mesh.Name);
                 }
             }));
-
             var skyMeshes = skyWld.GetFragmentsOfType<Mesh>().Where(m => !skySkeletonMeshNames.Contains(m.Name));
-
             var materialLists = GatherMaterialLists(skySkeletons.Cast<WldFragment>().Concat(skyMeshes.Cast<WldFragment>()).ToList());
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings, exportFormat, logger);
 
             var exportFolder = skyWld.GetExportFolderForWldType();
-
             var textureImageFolder = $"{exportFolder}Textures/";
-            gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
 
-            foreach (var mesh in skyMeshes)
+
+            for (int i = 1; ; i++)
             {
-                gltfWriter.AddFragmentData(
-                    mesh: mesh,
-                    generationMode: ModelGenerationMode.Separate);
+                List<Mesh> meshes = new List<Mesh>();
+                foreach (var mesh in skyMeshes)
+                {
+                    if (new System.Text.RegularExpressions.Regex($"LAYER{i}[13]_").IsMatch(mesh.Name))
+                    {
+                        meshes.Add(mesh);
+                    }
+                }
+                if (meshes.Count == 0)
+                {
+                    break;
+                }
+                var gltfWriter = new GltfWriter(settings, exportFormat, logger);
+                gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
+                foreach (var mesh in meshes)
+                {
+                    gltfWriter.AddFragmentData(
+                        mesh: mesh,
+                        generationMode: ModelGenerationMode.Separate);
+                }
+
+                var exportFilePath = $"{exportFolder}sky{i}.gltf";
+                gltfWriter.WriteAssetToFile(exportFilePath, true);
             }
+
 
             foreach (var skeleton in skySkeletons)
             {
+                var gltfWriter = new GltfWriter(settings, exportFormat, logger);
+                gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
                 var combinedMeshName = FragmentNameCleaner.CleanName(skeleton);
                 for (int i = 0; i < skeleton.Skeleton.Count; i++)
                 {
@@ -680,10 +699,16 @@ namespace LanternExtractor.EQ.Wld.Exporters
                         gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, false, false);
                     }
                 }
+<<<<<<< HEAD
             }
 
             var exportFilePath = $"{exportFolder}sky.gltf";
             gltfWriter.WriteAssetToFile(exportFilePath, true);
+=======
+                var exportFilePath = $"{exportFolder}{skeleton.ModelBase}.gltf";
+                gltfWriter.WriteAssetToFile(exportFilePath, true);
+            }
+>>>>>>> master
         }
 
         private static string GetUniqueNpcString(string actorName, Npc npc)

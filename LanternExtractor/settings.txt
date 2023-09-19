@@ -26,6 +26,10 @@ ModelExportFormat = 2
 # (Intermediate, OBJ)
 ExportZoneMeshGroups = false
 
+# glTF will export empty meshes with metadata of the region information
+# (glTF)
+ExportZoneRegions = false
+
 # Include hidden geometry (invisible boundaries) in the zone collision export?
 # (Intermediate, OBJ)
 ExportHiddenGeometry = false

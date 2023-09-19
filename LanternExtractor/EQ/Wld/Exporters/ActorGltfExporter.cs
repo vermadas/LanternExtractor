@@ -14,9 +14,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 {
     public static class ActorGltfExporter
     {
-		private const float ObjInstanceYAxisThreshold = -1000f;
+        private const float ObjInstanceYAxisThreshold = -1000f;
 
-		public static void ExportActors(WldFile wldFile, Settings settings, ILogger logger)
+        public static void ExportActors(WldFile wldFile, Settings settings, ILogger logger)
         {
             // For a zone wld, we ignore actors and just export all meshes
             if (wldFile.WldType == WldType.Zone)
@@ -97,8 +97,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var objects = new List<ObjInstance>();
             var shortName = wldFileZone.ShortName;
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-			var rootFolder = wldFileZone.RootFolder;
-			if (settings.ExportZoneWithObjects || settings.ExportZoneWithDoors)
+            var rootFolder = wldFileZone.RootFolder;
+            if (settings.ExportZoneWithObjects || settings.ExportZoneWithDoors)
             {
                 // Get object instances within this zone file to map up and instantiate later
                 var zoneObjectsFileInArchive =
@@ -141,34 +141,34 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 }
             }
 
-			var lightInstances = new List<LightInstance>();
-			if (settings.ExportZoneWithLights)
+            var lightInstances = new List<LightInstance>();
+            if (settings.ExportZoneWithLights)
             {
-				if (wldFileZone.WldFileToInject != null) // optional kunark _lit wld exists
-				{
-					var kunarkLitPath = wldFileZone.BasePath.Replace(".s3d", "_lit.s3d");
-				    var s3dArchiveLit = new PfsArchive(kunarkLitPath, logger);
+                if (wldFileZone.WldFileToInject != null) // optional kunark _lit wld exists
+                {
+                    var kunarkLitPath = wldFileZone.BasePath.Replace(".s3d", "_lit.s3d");
+                    var s3dArchiveLit = new PfsArchive(kunarkLitPath, logger);
                     s3dArchiveLit.Initialize();
                     var litWldFileInArchive = s3dArchiveLit.GetFile(shortName + "_lit.wld");
 
-					var lightsWldFile =
-						new WldFileLights(litWldFileInArchive, shortName, WldType.Lights, logger, settings, wldFileZone.WldFileToInject);
-					lightsWldFile.Initialize(rootFolder, false);
+                    var lightsWldFile =
+                        new WldFileLights(litWldFileInArchive, shortName, WldType.Lights, logger, settings, wldFileZone.WldFileToInject);
+                    lightsWldFile.Initialize(rootFolder, false);
                     lightInstances.AddRange(lightsWldFile.GetFragmentsOfType<LightInstance>());
-				}
+                }
 
-				var lightsFileInArchive = wldFileZone.S3dArchiveReference.GetFile("lights" + LanternStrings.WldFormatExtension);
+                var lightsFileInArchive = wldFileZone.S3dArchiveReference.GetFile("lights" + LanternStrings.WldFormatExtension);
 
-				if (lightsFileInArchive != null)
-				{
-					var lightsWldFile =
-						new WldFileLights(lightsFileInArchive, shortName, WldType.Lights, logger, settings, wldFileZone.WldFileToInject);
-					lightsWldFile.Initialize(rootFolder, false);
+                if (lightsFileInArchive != null)
+                {
+                    var lightsWldFile =
+                        new WldFileLights(lightsFileInArchive, shortName, WldType.Lights, logger, settings, wldFileZone.WldFileToInject);
+                    lightsWldFile.Initialize(rootFolder, false);
                     lightInstances.AddRange(lightsWldFile.GetFragmentsOfType<LightInstance>());
-				}
-			}
+                }
+            }
 
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+            var gltfWriter = new GltfWriter(settings, exportFormat, logger);
             var textureImageFolder = $"{wldFileZone.GetExportFolderForWldType()}Textures/";
             gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
 
@@ -177,7 +177,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 gltfWriter.AddFragmentData(
                     mesh: mesh,
                     generationMode: ModelGenerationMode.Combine,
-                    meshNameOverride: shortName);
+                    meshNameOverride: shortName,
+                    isZoneMesh: true);
             }
 
             gltfWriter.AddCombinedMeshToScene(true, shortName);
@@ -217,9 +218,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                     foreach (var instance in instances)
                     {
-						if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
+                        if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
 
-						if (!addedMeshOnce ||
+                        if (!addedMeshOnce ||
                             (settings.ExportGltfVertexColors
                              && instance.Colors?.Colors != null
                              && instance.Colors.Colors.Any()))
@@ -238,24 +239,25 @@ namespace LanternExtractor.EQ.Wld.Exporters
                                         isSkinned: settings.ExportZoneObjectsWithSkeletalAnimations,
                                         meshNameOverride: combinedMeshName,
                                         singularBoneIndex: i,
+                                        isZoneMesh: true,
                                         objectInstance: instance,
                                         instanceIndex: instanceIndex);
                                     mesh.Vertices = originalVertices;
                                 }
                             }
-						}
+                        }
 
                         if (settings.ExportZoneObjectsWithSkeletalAnimations)
                         {
                             gltfWriter.AddNewSkeleton(skeleton, null, null, instance, instanceIndex);
                             gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, true, instanceIndex);
-							gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, false, instanceIndex);
-							gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, skeleton.ModelBase, instance, instanceIndex);
-						}
+                            gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, false, instanceIndex);
+                            gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, skeleton.ModelBase, instance, instanceIndex);
+                        }
                         else
                         {
-							gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, null, instance);
-						}  
+                            gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, null, instance);
+                        }
                         addedMeshOnce = true;
                         instanceIndex++;
                     }
@@ -278,7 +280,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (mesh == null) return;
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+            var gltfWriter = new GltfWriter(settings, exportFormat, logger);
 
             var exportFolder = wldFile.GetExportFolderForWldType();
 
@@ -290,78 +292,78 @@ namespace LanternExtractor.EQ.Wld.Exporters
             gltfWriter.WriteAssetToFile(exportFilePath, true);
         }
 
-		private static void ExportSkeletalActor(Actor actor, Settings settings, WldFile wldFile, ILogger logger)
-		{
-			var skeleton = actor?.SkeletonReference?.SkeletonHierarchy;
+        private static void ExportSkeletalActor(Actor actor, Settings settings, WldFile wldFile, ILogger logger)
+        {
+            var skeleton = actor?.SkeletonReference?.SkeletonHierarchy;
 
-			if (skeleton == null) return;
+            if (skeleton == null) return;
 
-			if (settings.ExportAllAnimationFrames && wldFile.ZoneShortname != "global")
-			{
-				GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
-			}
+            if (settings.ExportAllAnimationFrames && wldFile.ZoneShortname != "global")
+            {
+                GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
+            }
 
-			var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-			var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+            var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
+            var gltfWriter = new GltfWriter(settings, exportFormat, logger);
 
-			var materialLists = GatherMaterialLists(new List<WldFragment>() { skeleton });
-			var exportFolder = wldFile.GetExportFolderForWldType();
+            var materialLists = GatherMaterialLists(new List<WldFragment>() { skeleton });
+            var exportFolder = wldFile.GetExportFolderForWldType();
 
             var textureImageFolder = Path.Combine(exportFolder, "Textures");
-			gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
+            gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
 
-			for (int i = 0; i < skeleton.Skeleton.Count; i++)
-			{
-				var bone = skeleton.Skeleton[i];
-				var mesh = bone?.MeshReference?.Mesh;
-				if (mesh != null)
-				{
+            for (int i = 0; i < skeleton.Skeleton.Count; i++)
+            {
+                var bone = skeleton.Skeleton[i];
+                var mesh = bone?.MeshReference?.Mesh;
+                if (mesh != null)
+                {
                     var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
-						wldFile.WldType == WldType.Characters, "pos", 0, i, true);
+                        wldFile.WldType == WldType.Characters, "pos", 0, i, true);
 
-					gltfWriter.AddFragmentData(mesh, skeleton, i);
-
-                    mesh.Vertices = originalVertices;
-				}
-			}
-
-			if (skeleton.Meshes != null)
-			{
-				foreach (var mesh in skeleton.Meshes)
-				{
-					var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
-						wldFile.WldType == WldType.Characters, "pos", 0);
-
-					gltfWriter.AddFragmentData(mesh, skeleton);
+                    gltfWriter.AddFragmentData(mesh, skeleton, i);
 
                     mesh.Vertices = originalVertices;
-				}
-			}
+                }
+            }
 
-			if (settings.ExportAllAnimationFrames)
-			{
-				gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
+            if (skeleton.Meshes != null)
+            {
+                foreach (var mesh in skeleton.Meshes)
+                {
+                    var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
+                        wldFile.WldType == WldType.Characters, "pos", 0);
+
+                    gltfWriter.AddFragmentData(mesh, skeleton);
+
+                    mesh.Vertices = originalVertices;
+                }
+            }
+
+            if (settings.ExportAllAnimationFrames)
+            {
+                gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
 
                 foreach (var animationKey in skeleton.Animations.Keys
                     .Where(a => a == "pos" ||
                         settings.ExportedAnimationTypes.Contains(a.Substring(0, 1).ToLower()))
-					.OrderBy(k => k, new AnimationKeyComparer()))
-				{
-					gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
-						wldFile.WldType == WldType.Characters, false);
-				}
-			}
+                    .OrderBy(k => k, new AnimationKeyComparer()))
+                {
+                    gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
+                        wldFile.WldType == WldType.Characters, false);
+                }
+            }
 
-			var exportFilePath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}.gltf";
-			gltfWriter.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
-		}
+            var exportFilePath = $"{exportFolder}{FragmentNameCleaner.CleanName(skeleton)}.gltf";
+            gltfWriter.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
+        }
 
         private static void ExportZoneCharacterVariations(WldFileCharacters wldChrFile, Settings settings,
             ILogger logger)
         {
-			var zoneName = wldChrFile.ZoneShortname;
+            var zoneName = wldChrFile.ZoneShortname;
 
-			var zonePcsWithVariations = GlobalReference.ServerDatabaseConnector
+            var zonePcsWithVariations = GlobalReference.ServerDatabaseConnector
                 .QueryPlayerCharactersInZoneFromDatabase(zoneName);
             var zoneGlobalCharacters = GlobalReference.ServerDatabaseConnector
                 .QueryGlobalNpcsInZone(zoneName);
@@ -373,28 +375,28 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var allUniqueHeldEquipmentIds = GetUniqueHeldEquipmentIds(
                 zonePcsWithVariations, zoneGlobalCharacters, zoneNpcsWithVariations);
 
-			var translator = GlobalReference.NpcDatabaseToClientTranslator;
-			var groupedZoneGlobalCharacters = zoneGlobalCharacters.ToLookup(
-				c => translator.GetClientModelForRaceIdAndGender(c.Race, (int)c.Gender));
-			var groupedZonePcsWithVariations = zonePcsWithVariations.ToLookup(
-				p => p.Item2.RaceGender);
-			var uniqueGlobalActors = groupedZoneGlobalCharacters.Select(g => g.Key)
+            var translator = GlobalReference.NpcDatabaseToClientTranslator;
+            var groupedZoneGlobalCharacters = zoneGlobalCharacters.ToLookup(
+                c => translator.GetClientModelForRaceIdAndGender(c.Race, (int)c.Gender));
+            var groupedZonePcsWithVariations = zonePcsWithVariations.ToLookup(
+                p => p.Item2.RaceGender);
+            var uniqueGlobalActors = groupedZoneGlobalCharacters.Select(g => g.Key)
                 .Union(groupedZonePcsWithVariations.Select(g => g.Key));
 
             var wldEqFile = ArchiveExtractor.InitWldsForZoneCharacterVariationExport(
-                uniqueGlobalActors, allUniqueHeldEquipmentIds, wldChrFile.RootExportFolder, 
+                uniqueGlobalActors, allUniqueHeldEquipmentIds, wldChrFile.RootExportFolder,
                 zoneName, logger, settings);
 
             var groupedZoneNpcsWithVariants = zoneNpcsWithVariations.ToLookup(
                 n => translator.GetClientModelForRaceIdAndGender(n.Race, (int)n.Gender));
-            
+
             foreach (var actorName in groupedZonePcsWithVariations.Select(g => g.Key))
             {
                 PlayerCharacterGltfExporter.ExportPlayerCharacterVariationsForActor(
                     actorName, groupedZonePcsWithVariations[actorName], GlobalReference.CharacterWld,
                     wldEqFile, zoneName, logger, settings);
             }
-                
+
             foreach (var actorName in groupedZoneGlobalCharacters.Select(g => g.Key))
             {
                 var lookupName = $"{actorName}_ACTORDEF";
@@ -408,14 +410,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             foreach (var actorName in groupedZoneNpcsWithVariants.Select(g => g.Key))
             {
-				var lookupName = $"{actorName}_ACTORDEF";
+                var lookupName = $"{actorName}_ACTORDEF";
 
-				var actor = wldChrFile.GetFragmentByNameIncludingInjectedWlds<Actor>(lookupName);
+                var actor = wldChrFile.GetFragmentByNameIncludingInjectedWlds<Actor>(lookupName);
 
-				ExportActorNpcVariations(actor, settings, wldChrFile,
-					groupedZoneNpcsWithVariants[actorName], wldEqFile, zoneName, logger);
-			}
-		}
+                ExportActorNpcVariations(actor, settings, wldChrFile,
+                    groupedZoneNpcsWithVariants[actorName], wldEqFile, zoneName, logger);
+            }
+        }
 
         private static void FixElementals(IEnumerable<Npc> globalNpcs)
         {
@@ -423,18 +425,18 @@ namespace LanternExtractor.EQ.Wld.Exporters
             globalNpcs.Where(n => n.Race == 209).ToList().ForEach(
                 n => { n.Race = 75; n.Texture = 0; });
 
-			// Fire
-			globalNpcs.Where(n => n.Race == 212).ToList().ForEach(
-				n => { n.Race = 75; n.Texture = 1; });
+            // Fire
+            globalNpcs.Where(n => n.Race == 212).ToList().ForEach(
+                n => { n.Race = 75; n.Texture = 1; });
 
-			// Water
-			globalNpcs.Where(n => n.Race == 211).ToList().ForEach(
-	            n => { n.Race = 75; n.Texture = 2; });
+            // Water
+            globalNpcs.Where(n => n.Race == 211).ToList().ForEach(
+                n => { n.Race = 75; n.Texture = 2; });
 
-			// Air
-			globalNpcs.Where(n => n.Race == 210).ToList().ForEach(
-	            n => { n.Race = 75; n.Texture = 3; });
-		}
+            // Air
+            globalNpcs.Where(n => n.Race == 210).ToList().ForEach(
+                n => { n.Race = 75; n.Texture = 3; });
+        }
 
         private static IEnumerable<string> GetUniqueHeldEquipmentIds(
             IEnumerable<(string, PlayerCharacterModel)> zonePcsWithVariations,
@@ -442,184 +444,184 @@ namespace LanternExtractor.EQ.Wld.Exporters
             IEnumerable<Npc> zoneNpcsWithVariations)
         {
             return zonePcsWithVariations.Where(p => p.Item2.Primary_ID != null)
-					.Select(p => p.Item2.Primary_ID)
-					.Union(
-						zonePcsWithVariations.Where(p => p.Item2.Secondary_ID != null)
-							.Select(p => p.Item2.Secondary_ID))
-					.Union(
-						zoneGlobalCharacters.Where(c => c.Primary > 0)
-							.Select(c => $"IT{c.Primary}"))
-					.Union(
-						zoneGlobalCharacters.Where(c => c.Secondary > 0)
-							.Select(c => $"IT{c.Secondary}"))
-					.Union(
-						zoneNpcsWithVariations.Where(c => c.Primary > 0)
-							.Select(c => $"IT{c.Primary}"))
-					.Union(
-						zoneNpcsWithVariations.Where(c => c.Secondary > 0)
-							.Select(c => $"IT{c.Secondary}"))
-					.Distinct();
-		}
+                    .Select(p => p.Item2.Primary_ID)
+                    .Union(
+                        zonePcsWithVariations.Where(p => p.Item2.Secondary_ID != null)
+                            .Select(p => p.Item2.Secondary_ID))
+                    .Union(
+                        zoneGlobalCharacters.Where(c => c.Primary > 0)
+                            .Select(c => $"IT{c.Primary}"))
+                    .Union(
+                        zoneGlobalCharacters.Where(c => c.Secondary > 0)
+                            .Select(c => $"IT{c.Secondary}"))
+                    .Union(
+                        zoneNpcsWithVariations.Where(c => c.Primary > 0)
+                            .Select(c => $"IT{c.Primary}"))
+                    .Union(
+                        zoneNpcsWithVariations.Where(c => c.Secondary > 0)
+                            .Select(c => $"IT{c.Secondary}"))
+                    .Distinct();
+        }
 
         private static void ExportActorNpcVariations(Actor actor, Settings settings, WldFile wldFile,
-			IEnumerable<Npc> npcVariations, WldFileEquipment wldEqFile, string zoneName, ILogger logger)
+            IEnumerable<Npc> npcVariations, WldFileEquipment wldEqFile, string zoneName, ILogger logger)
         {
-			var skeleton = actor?.SkeletonReference?.SkeletonHierarchy;
+            var skeleton = actor?.SkeletonReference?.SkeletonHierarchy;
 
-			if (skeleton == null) return;
+            if (skeleton == null) return;
 
             if (skeleton.Meshes == null) return;
 
-			var actorName = FragmentNameCleaner.CleanName(skeleton);
+            var actorName = FragmentNameCleaner.CleanName(skeleton);
 
-			if (settings.ExportAllAnimationFrames)
-			{
-				GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
-			}
+            if (settings.ExportAllAnimationFrames)
+            {
+                GlobalReference.CharacterWld.AddAdditionalAnimationsToSkeleton(skeleton);
+            }
 
-			var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-			var gltfWriterForCommonMaterials = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+            var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
+            var gltfWriterForCommonMaterials = new GltfWriter(settings, exportFormat, logger);
 
-			var materialLists = GatherMaterialLists(new List<WldFragment>() { skeleton });
-			var exportFolder = Path.Combine(wldFile.RootExportFolder, zoneName, "Characters");
+            var materialLists = GatherMaterialLists(new List<WldFragment>() { skeleton });
+            var exportFolder = Path.Combine(wldFile.RootExportFolder, zoneName, "Characters");
 
             var textureImageFolder = Path.Combine(exportFolder, "Textures");
-			gltfWriterForCommonMaterials.GenerateGltfMaterials(materialLists, textureImageFolder, npcVariations != null);
+            gltfWriterForCommonMaterials.GenerateGltfMaterials(materialLists, textureImageFolder, npcVariations != null);
 
-			var variationGltfWriters = new Dictionary<Npc, GltfWriter>();
-			var heldEquipmentMeshes = new Dictionary<int, WldFragment>();
+            var variationGltfWriters = new Dictionary<Npc, GltfWriter>();
+            var heldEquipmentMeshes = new Dictionary<int, WldFragment>();
 
-			foreach (var npc in npcVariations)
-			{
-				var variationWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
-				variationWriter.CopyMaterialList(gltfWriterForCommonMaterials);
-				var equipmentFragments = new List<WldFragment>();
-				if (npc.Primary > 0)
-				{
-					if (!heldEquipmentMeshes.TryGetValue(npc.Primary, out var primaryMeshOrSkeleton))
-					{
-						primaryMeshOrSkeleton = GltfCharacterHeldEquipmentHelper.GetMeshOrSkeletonForCharacterHeldEquipment
-							($"IT{npc.Primary}", wldEqFile, logger);
-						heldEquipmentMeshes.Add(npc.Primary, primaryMeshOrSkeleton);
-					}
-					equipmentFragments.Add(primaryMeshOrSkeleton);
-				}
-				if (npc.Secondary > 0)
-				{
-					if (!heldEquipmentMeshes.TryGetValue(npc.Secondary, out var secondaryMeshOrSkeleton))
-					{
-						secondaryMeshOrSkeleton = GltfCharacterHeldEquipmentHelper.GetMeshOrSkeletonForCharacterHeldEquipment
-							($"IT{npc.Secondary}", wldEqFile, logger);
-						heldEquipmentMeshes.Add(npc.Secondary, secondaryMeshOrSkeleton);
-					}
-					equipmentFragments.Add(secondaryMeshOrSkeleton);
-				}
-				if (equipmentFragments.Any())
-				{
-					var eqMaterialLists = GatherMaterialLists(equipmentFragments);
-					variationWriter.GenerateGltfMaterials(eqMaterialLists, textureImageFolder);
-				}
-				variationGltfWriters.Add(npc, variationWriter);
-			}
+            foreach (var npc in npcVariations)
+            {
+                var variationWriter = new GltfWriter(settings, exportFormat, logger);
+                variationWriter.CopyMaterialList(gltfWriterForCommonMaterials);
+                var equipmentFragments = new List<WldFragment>();
+                if (npc.Primary > 0)
+                {
+                    if (!heldEquipmentMeshes.TryGetValue(npc.Primary, out var primaryMeshOrSkeleton))
+                    {
+                        primaryMeshOrSkeleton = GltfCharacterHeldEquipmentHelper.GetMeshOrSkeletonForCharacterHeldEquipment
+                            ($"IT{npc.Primary}", wldEqFile, logger);
+                        heldEquipmentMeshes.Add(npc.Primary, primaryMeshOrSkeleton);
+                    }
+                    equipmentFragments.Add(primaryMeshOrSkeleton);
+                }
+                if (npc.Secondary > 0)
+                {
+                    if (!heldEquipmentMeshes.TryGetValue(npc.Secondary, out var secondaryMeshOrSkeleton))
+                    {
+                        secondaryMeshOrSkeleton = GltfCharacterHeldEquipmentHelper.GetMeshOrSkeletonForCharacterHeldEquipment
+                            ($"IT{npc.Secondary}", wldEqFile, logger);
+                        heldEquipmentMeshes.Add(npc.Secondary, secondaryMeshOrSkeleton);
+                    }
+                    equipmentFragments.Add(secondaryMeshOrSkeleton);
+                }
+                if (equipmentFragments.Any())
+                {
+                    var eqMaterialLists = GatherMaterialLists(equipmentFragments);
+                    variationWriter.GenerateGltfMaterials(eqMaterialLists, textureImageFolder);
+                }
+                variationGltfWriters.Add(npc, variationWriter);
+            }
 
             // Out of the loop to ensure it's done only once per mesh
             var preShiftedVerticesForMeshes = new Dictionary<string, List<GlmSharp.vec3>>();
-			foreach (var mesh in skeleton.Meshes.Union(skeleton.SecondaryMeshes))
-			{
-				var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
-					wldFile.WldType == WldType.Characters, "pos", 0);
+            foreach (var mesh in skeleton.Meshes.Union(skeleton.SecondaryMeshes))
+            {
+                var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
+                    wldFile.WldType == WldType.Characters, "pos", 0);
                 preShiftedVerticesForMeshes.Add(mesh.Name, originalVertices);
-			}
+            }
             var boneMeshes = new List<Mesh>();
-			for (int i = 0; i < skeleton.Skeleton.Count; i++)
-			{
-				var mesh = skeleton.Skeleton[i]?.MeshReference?.Mesh;
-				if (mesh != null)
-				{
-					var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
-						wldFile.WldType == WldType.Characters, "pos", 0, i, true);
+            for (int i = 0; i < skeleton.Skeleton.Count; i++)
+            {
+                var mesh = skeleton.Skeleton[i]?.MeshReference?.Mesh;
+                if (mesh != null)
+                {
+                    var originalVertices = MeshExportHelper.ShiftMeshVertices(mesh, skeleton,
+                        wldFile.WldType == WldType.Characters, "pos", 0, i, true);
                     preShiftedVerticesForMeshes.Add(mesh.Name, originalVertices);
                     boneMeshes.Add(mesh);
-				}
-			}
+                }
+            }
 
-			foreach (var npc in npcVariations)
-			{
+            foreach (var npc in npcVariations)
+            {
                 if (skeleton.Meshes != null && skeleton.Meshes.Any())
                 {
                     var meshes = new List<Mesh>() { skeleton.Meshes[0] };
-					if (npc.HelmTexture > 0 && skeleton.SecondaryMeshes.Any())
-					{
-						meshes.Add(skeleton.SecondaryMeshes[npc.HelmTexture - 1]);
-					}
-					else if (skeleton.Meshes.Count > 1)
-					{
-						meshes.Add(skeleton.Meshes[1]);
-					}
-					foreach (var mesh in meshes)
-					{
-						variationGltfWriters[npc].AddFragmentData(mesh, skeleton, -1, npc);
-					}
-				}
+                    if (npc.HelmTexture > 0 && skeleton.SecondaryMeshes.Any())
+                    {
+                        meshes.Add(skeleton.SecondaryMeshes[npc.HelmTexture - 1]);
+                    }
+                    else if (skeleton.Meshes.Count > 1)
+                    {
+                        meshes.Add(skeleton.Meshes[1]);
+                    }
+                    foreach (var mesh in meshes)
+                    {
+                        variationGltfWriters[npc].AddFragmentData(mesh, skeleton, -1, npc);
+                    }
+                }
                 else
                 {
-					for (int i = 0; i < skeleton.Skeleton.Count; i++)
-					{
-						var mesh = skeleton.Skeleton[i]?.MeshReference?.Mesh;
-						if (mesh != null)
-						{
-							variationGltfWriters[npc].AddFragmentData(mesh, skeleton, i, npc);
-						}
-					}
-				}
+                    for (int i = 0; i < skeleton.Skeleton.Count; i++)
+                    {
+                        var mesh = skeleton.Skeleton[i]?.MeshReference?.Mesh;
+                        if (mesh != null)
+                        {
+                            variationGltfWriters[npc].AddFragmentData(mesh, skeleton, i, npc);
+                        }
+                    }
+                }
 
-				var boneIndexOffset = skeleton.Skeleton.Count;
-				if (npc.Primary > 0)
-				{
-					GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
-						(heldEquipmentMeshes[npc.Primary], $"IT{npc.Primary}", skeleton, "r_point",
-							variationGltfWriters[npc], ref boneIndexOffset);
-				}
-				if (npc.Secondary > 0)
-				{
-					var secondaryAttachBone = GltfCharacterHeldEquipmentHelper.IsShield($"IT{npc.Secondary}") ?
-						"shield_point" : "l_point";
-					GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
-						(heldEquipmentMeshes[npc.Secondary], $"IT{npc.Secondary}", skeleton, secondaryAttachBone,
-							variationGltfWriters[npc], ref boneIndexOffset);
-				}
-			}
+                var boneIndexOffset = skeleton.Skeleton.Count;
+                if (npc.Primary > 0)
+                {
+                    GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
+                        (heldEquipmentMeshes[npc.Primary], $"IT{npc.Primary}", skeleton, "r_point",
+                            variationGltfWriters[npc], ref boneIndexOffset);
+                }
+                if (npc.Secondary > 0)
+                {
+                    var secondaryAttachBone = GltfCharacterHeldEquipmentHelper.IsShield($"IT{npc.Secondary}") ?
+                        "shield_point" : "l_point";
+                    GltfCharacterHeldEquipmentHelper.AddCharacterHeldEquipmentToGltfWriter
+                        (heldEquipmentMeshes[npc.Secondary], $"IT{npc.Secondary}", skeleton, secondaryAttachBone,
+                            variationGltfWriters[npc], ref boneIndexOffset);
+                }
+            }
 
-			foreach (var mesh in skeleton.Meshes.Union(skeleton.SecondaryMeshes).Union(boneMeshes))
-			{
+            foreach (var mesh in skeleton.Meshes.Union(skeleton.SecondaryMeshes).Union(boneMeshes))
+            {
                 mesh.Vertices = preShiftedVerticesForMeshes[mesh.Name];
-			}
+            }
 
-			if (settings.ExportAllAnimationFrames)
-			{
-				foreach (var gltfWriter in variationGltfWriters.Values)
-				{
-					gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
+            if (settings.ExportAllAnimationFrames)
+            {
+                foreach (var gltfWriter in variationGltfWriters.Values)
+                {
+                    gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", wldFile.WldType == WldType.Characters, true);
 
-					foreach (var animationKey in skeleton.Animations.Keys
-						.Where(a => settings.ExportedAnimationTypes.Contains(a.Substring(0, 1).ToLower()))
-						.OrderBy(k => k, new AnimationKeyComparer()))
-					{
-						gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
-							wldFile.WldType == WldType.Characters, false);
-					}
-				}
-			}
+                    foreach (var animationKey in skeleton.Animations.Keys
+                        .Where(a => settings.ExportedAnimationTypes.Contains(a.Substring(0, 1).ToLower()))
+                        .OrderBy(k => k, new AnimationKeyComparer()))
+                    {
+                        gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey,
+                            wldFile.WldType == WldType.Characters, false);
+                    }
+                }
+            }
 
-			foreach (var variationGltfWriter in variationGltfWriters)
-			{
-				var fileName = GetUniqueNpcString(actorName, variationGltfWriter.Key);
-				var exportFilePath = Path.Combine(exportFolder, $"{fileName}.gltf");
-				variationGltfWriter.Value.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
-			}
-		}
+            foreach (var variationGltfWriter in variationGltfWriters)
+            {
+                var fileName = GetUniqueNpcString(actorName, variationGltfWriter.Key);
+                var exportFilePath = Path.Combine(exportFolder, $"{fileName}.gltf");
+                variationGltfWriter.Value.WriteAssetToFile(exportFilePath, true, skeleton.ModelBase);
+            }
+        }
 
-		private static void ExportSky(Settings settings, WldFile skyWld, ILogger logger)
+        private static void ExportSky(Settings settings, WldFile skyWld, ILogger logger)
         {
             var skySkeletons = skyWld.GetFragmentsOfType<SkeletonHierarchy>();
             var skySkeletonMeshNames = new List<string>();
@@ -636,7 +638,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var materialLists = GatherMaterialLists(skySkeletons.Cast<WldFragment>().Concat(skyMeshes.Cast<WldFragment>()).ToList());
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+            var gltfWriter = new GltfWriter(settings, exportFormat, logger);
 
             var exportFolder = skyWld.GetExportFolderForWldType();
 
@@ -670,15 +672,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                 gltfWriter.AddCombinedMeshToScene(true, combinedMeshName, skeleton.ModelBase);
 
-				if (settings.ExportAllAnimationFrames)
-				{
-					gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, true);
-					foreach (var animationKey in skeleton.Animations.Keys)
-					{
-						gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, false, false);
-					}
-				}
-			}
+                if (settings.ExportAllAnimationFrames)
+                {
+                    gltfWriter.ApplyAnimationToSkeleton(skeleton, "pos", false, true);
+                    foreach (var animationKey in skeleton.Animations.Keys)
+                    {
+                        gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, false, false);
+                    }
+                }
+            }
 
             var exportFilePath = $"{exportFolder}sky.gltf";
             gltfWriter.WriteAssetToFile(exportFilePath, true);

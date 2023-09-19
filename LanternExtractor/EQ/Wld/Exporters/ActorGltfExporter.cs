@@ -175,7 +175,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var bspNodes = wldFileZone.GetFragmentsOfType<BspTree>();
             foreach (var mesh in zoneMeshes)
             {
-                if (settings.ExportZoneMeshGroups)
+                if (settings.ExportZoneRegions)
                 {
                     var frag = bspNodes[0].Nodes.Find(n => n.Region?.Mesh == mesh);
                     if (frag?.Region?.RegionType != null)

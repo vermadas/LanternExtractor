@@ -172,8 +172,17 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var textureImageFolder = $"{wldFileZone.GetExportFolderForWldType()}Textures/";
             gltfWriter.GenerateGltfMaterials(materialLists, textureImageFolder);
 
+            var bspNodes = wldFileZone.GetFragmentsOfType<BspTree>();
             foreach (var mesh in zoneMeshes)
             {
+                if (settings.ExportZoneMeshGroups)
+                {
+                    var frag = bspNodes[0].Nodes.Find(n => n.Region?.Mesh == mesh);
+                    if (frag?.Region?.RegionType != null)
+                    {
+                        gltfWriter.AddRegionData(mesh, frag);
+                    }
+                }
                 gltfWriter.AddFragmentData(
                     mesh: mesh,
                     generationMode: ModelGenerationMode.Combine,

@@ -297,7 +297,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var meshBuilder = new MeshBuilder<VertexPositionNormal>(mesh.Name);
             var materialBuilder = new MaterialBuilder("");
             var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles);
-            var polygonCount = mesh.MaterialGroups.Aggregate(0, (acc, val) => acc + val.PolygonCount);
+            var polygonCount = mesh.MaterialGroups.Sum(material => material.PolygonCount);
 
             for (var i = 0; i < polygonCount; i++)
             {
@@ -306,9 +306,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 var prim = meshBuilder.UsePrimitive(materialBuilder);
 
                 prim.AddTriangle(
-                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(vertexPositions.v2)),
-                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(vertexPositions.v1)),
-                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(vertexPositions.v0))
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v2, Matrix4x4.CreateScale(ZoneScaleMultiplier)))),
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v1, Matrix4x4.CreateScale(ZoneScaleMultiplier)))),
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v0, Matrix4x4.CreateScale(ZoneScaleMultiplier))))
                     );
             }
 

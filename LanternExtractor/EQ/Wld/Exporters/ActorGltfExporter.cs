@@ -217,7 +217,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var addedMeshOnce = false;
 
                     foreach (var instance in instances)
-                    {>>
+                    {
                         if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
 
                         if (!addedMeshOnce ||
@@ -699,16 +699,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
                         gltfWriter.ApplyAnimationToSkeleton(skeleton, animationKey, false, false);
                     }
                 }
-<<<<<<< HEAD
-            }
-
-            var exportFilePath = $"{exportFolder}sky.gltf";
-            gltfWriter.WriteAssetToFile(exportFilePath, true);
-=======
                 var exportFilePath = $"{exportFolder}{skeleton.ModelBase}.gltf";
                 gltfWriter.WriteAssetToFile(exportFilePath, true);
             }
->>>>>>> master
         }
 
         private static string GetUniqueNpcString(string actorName, Npc npc)

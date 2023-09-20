@@ -49,6 +49,11 @@ namespace LanternExtractor
         public bool ExportZoneMeshGroups { get; private set; }
 
         /// <summary>
+        /// Adds zone regions to the gltf scene
+        /// </summary>
+        public bool ExportZoneRegions { get; private set; }
+
+        /// <summary>
         /// Exports hidden geometry like zone boundaries
         /// </summary>
         public bool ExportHiddenGeometry { get; private set; }
@@ -161,6 +166,7 @@ namespace LanternExtractor
             EverQuestDirectory = "C:/EverQuest/";
             RawS3dExtract = false;
             ExportZoneMeshGroups = false;
+            ExportZoneRegions = false;
             ExportHiddenGeometry = false;
             LoggerVerbosity = 0;
         }
@@ -203,6 +209,11 @@ namespace LanternExtractor
             if (parsedSettings.ContainsKey("ExportZoneMeshGroups"))
             {
                 ExportZoneMeshGroups = Convert.ToBoolean(parsedSettings["ExportZoneMeshGroups"]);
+            }
+
+            if (parsedSettings.ContainsKey("ExportZoneRegions"))
+            {
+                ExportZoneRegions = Convert.ToBoolean(parsedSettings["ExportZoneRegions"]);
             }
 
             if (parsedSettings.ContainsKey("ExportHiddenGeometry"))

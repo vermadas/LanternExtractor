@@ -94,30 +94,30 @@ namespace LanternExtractor
         /// </summary>
         public bool ExportZoneCharacterVariations { get; private set; }
 
-        /// <summary>
-        /// Exports zone glTF with light instances with intensity set to the
+		/// <summary>
+		/// Exports zone glTF with light instances with intensity set to the
         /// provided value. If set at 0, lights are not exported
-        /// </summary>
-        public float LightIntensityMultiplier { get; private set; }
+		/// </summary>
+		public float LightIntensityMultiplier { get; private set; }
         public bool ExportZoneWithLights => LightIntensityMultiplier > 0;
 
-        /// <summary>
-        /// Exports zone with objects with skeletal animations included
-        /// </summary>
-        public bool ExportZoneObjectsWithSkeletalAnimations { get; private set; }
+		/// <summary>
+		/// Exports zone with objects with skeletal animations included
+		/// </summary>
+		public bool ExportZoneObjectsWithSkeletalAnimations { get; private set; }
 
         /// <summary>
 		/// Sets the export scale of the zone when exported
 		/// </summary>
         public float ExportZoneScale { get; private set; }
 
-        /// <summary>
-        /// Export vertex colors with glTF model. Default behavior of glTF renderers
-        /// is to mix the vertex color with the base color, which will not look right.
-        /// Only turn this on if you intend to do some post-processing that
-        /// requires vertex colors being present.
-        /// </summary>
-        public bool ExportGltfVertexColors { get; private set; }
+		/// <summary>
+		/// Export vertex colors with glTF model. Default behavior of glTF renderers
+		/// is to mix the vertex color with the base color, which will not look right.
+		/// Only turn this on if you intend to do some post-processing that
+		/// requires vertex colors being present.
+		/// </summary>
+		public bool ExportGltfVertexColors { get; private set; }
 
         /// <summary>
         /// Exports glTF models in .GLB file format. GLB packages the .glTF json, the
@@ -127,10 +127,10 @@ namespace LanternExtractor
         /// </summary>
         public bool ExportGltfInGlbFormat { get; private set; }
 
-        /// <summary>
-        /// Generate duplicate sets of vertices for triangles sharing vertices with another
-        /// </summary>
-        public bool SeparateTwoFacedTriangles { get; private set; }
+		/// <summary>
+		/// Generate duplicate sets of vertices for triangles sharing vertices with another
+		/// </summary>
+		public bool SeparateTwoFacedTriangles { get; private set; }
 
         /// <summary>
         /// Additional files that should be copied when extracting with `all` or `clientdata`
@@ -225,27 +225,27 @@ namespace LanternExtractor
                 ExportZoneWithDoors = Convert.ToBoolean(parsedSettings["ExportZoneWithDoors"]);
             }
 
-            if (parsedSettings.ContainsKey("ExportZoneCharacterVariations"))
-            {
-                ExportZoneCharacterVariations = Convert.ToBoolean(parsedSettings["ExportZoneCharacterVariations"]);
-            }
+			if (parsedSettings.ContainsKey("ExportZoneCharacterVariations"))
+			{
+				ExportZoneCharacterVariations = Convert.ToBoolean(parsedSettings["ExportZoneCharacterVariations"]);
+			}
 
-            if (parsedSettings.ContainsKey("LightIntensityMultiplier"))
-            {
-                LightIntensityMultiplier = Convert.ToSingle(parsedSettings["LightIntensityMultiplier"]);
-            }
+			if (parsedSettings.ContainsKey("LightIntensityMultiplier"))
+			{
+				LightIntensityMultiplier = Convert.ToSingle(parsedSettings["LightIntensityMultiplier"]);
+			}
 
-            if (parsedSettings.ContainsKey("ExportZoneObjectsWithSkeletalAnimations"))
-            {
-                ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(parsedSettings["ExportZoneObjectsWithSkeletalAnimations"]);
-            }
+			if (parsedSettings.ContainsKey("ExportZoneObjectsWithSkeletalAnimations"))
+			{
+				ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(parsedSettings["ExportZoneObjectsWithSkeletalAnimations"]);
+			}
 
             if (parsedSettings.ContainsKey("ExportZoneScale"))
             {
                 ExportZoneScale = Convert.ToSingle(parsedSettings["ExportZoneScale"]);
             }
 
-            if (parsedSettings.ContainsKey("ModelExportFormat"))
+			if (parsedSettings.ContainsKey("ModelExportFormat"))
             {
                 var exportFormatSetting = (ModelExportFormat)Convert.ToInt32(parsedSettings["ModelExportFormat"]);
                 ModelExportFormat = exportFormatSetting;
@@ -281,19 +281,19 @@ namespace LanternExtractor
                 ExportGltfInGlbFormat = Convert.ToBoolean(parsedSettings["ExportGltfInGlbFormat"]);
             }
 
-            if (parsedSettings.ContainsKey("SeparateTwoFacedTriangles"))
-            {
-                SeparateTwoFacedTriangles = Convert.ToBoolean(parsedSettings["SeparateTwoFacedTriangles"]);
-            }
+			if (parsedSettings.ContainsKey("SeparateTwoFacedTriangles"))
+			{
+				SeparateTwoFacedTriangles = Convert.ToBoolean(parsedSettings["SeparateTwoFacedTriangles"]);
+			}
 
-            if (parsedSettings.ContainsKey("ExportedAnimationTypes"))
+			if (parsedSettings.ContainsKey("ExportedAnimationTypes"))
             {
                 var animationIncludeString = parsedSettings["ExportedAnimationTypes"].Trim();
-                ExportedAnimationTypes = animationIncludeString
+				ExportedAnimationTypes = animationIncludeString
                     .Split(',').Select(a => a.Trim().ToLower())
                     .Where(a => a.Length == 1).ToList();
             }
-
+			
             if (parsedSettings.ContainsKey("ClientDataToCopy"))
             {
                 ClientDataToCopy = parsedSettings["ClientDataToCopy"];
@@ -311,10 +311,10 @@ namespace LanternExtractor
         }
 
         public bool UsingCombinedGlobalChr()
-        {
+		{
             return ModelExportFormat != ModelExportFormat.Intermediate &&
-                (ExportAllAnimationFrames || ExportZoneCharacterVariations)
+				(ExportAllAnimationFrames || ExportZoneCharacterVariations)
                 && !RawS3dExtract;
-        }
+		}
     }
 }

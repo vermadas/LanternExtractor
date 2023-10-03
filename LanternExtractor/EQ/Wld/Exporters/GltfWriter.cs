@@ -553,7 +553,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 foreach (var lightInstance in uniqueLightGroups)
                 {
                     var position = lightInstance.Position.ToVector3(swapYandZ: true);
-                    var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix;
+                    var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix * MirrorXAxisMatrix;
                     Matrix4x4.Decompose(translationMatrix, out _, out _, out var translation);
 					var lightName = lightInstance.LightReference?.LightSource?.Name;
 					var node = new NodeBuilder(lightName != null ? lightName.Split('_')[0] : "");

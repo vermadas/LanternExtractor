@@ -12,7 +12,8 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using WldColor = LanternExtractor.EQ.Wld.DataTypes.Color;
 using Animation = LanternExtractor.EQ.Wld.DataTypes.Animation;
 using System.Drawing.Imaging;
@@ -290,6 +291,37 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     }
                 }
             }
+        }
+
+        public void AddRegionData(Mesh mesh, DataTypes.BspNode frag)
+        {
+            var meshBuilder = new MeshBuilder<VertexPositionNormal>(mesh.Name);
+            var materialBuilder = new MaterialBuilder("");
+            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles);
+            var polygonCount = mesh.MaterialGroups.Sum(material => material.PolygonCount);
+
+            for (var i = 0; i < polygonCount; i++)
+            {
+                var triangle = meshHelper.GetTriangle(i);
+                var vertexPositions = meshHelper.GetVertexPositions(triangle);
+                var prim = meshBuilder.UsePrimitive(materialBuilder);
+
+                prim.AddTriangle(
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v2, Matrix4x4.CreateScale(ZoneScaleMultiplier)))),
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v1, Matrix4x4.CreateScale(ZoneScaleMultiplier)))),
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v0, Matrix4x4.CreateScale(ZoneScaleMultiplier))))
+                    );
+            }
+
+            var regionMetadata = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
+            regionMetadata.Add("regions", frag?.Region?.RegionType?.RegionTypes ?? new List<DataTypes.RegionType>());
+
+            if (frag?.Region?.RegionType?.Zoneline != null)
+            {
+                regionMetadata.Add("zoneLine", frag.Region.RegionType.Zoneline);
+            }
+            meshBuilder.Extras = SharpGLTF.IO.JsonContent.Parse(JsonSerializer.Serialize(regionMetadata));
+            _scene.AddRigidMesh(meshBuilder, new AffineTransform(Matrix4x4.Identity));
         }
 
         public void AddFragmentData(
@@ -606,6 +638,17 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
 			var outputFilePath = FixFilePath(fileName);
             var model = _scene.ToGltf2();
+
+            foreach (var node in model.LogicalNodes)
+            {
+                if (node.Mesh != null && (node.Mesh.Extras.Content?.ToString() ?? string.Empty) != string.Empty)
+                {
+                    node.Extras = node.Mesh.Extras;
+                    JsonNode regionTypes = JsonSerializer.Deserialize<JsonNode>(node.Extras.ToJson())["regions"];
+                    var reg = regionTypes.AsArray().Select(a => a.GetValue<int>().ToString());
+                    node.Name = $"region_{string.Join("-", reg)}";
+                }
+            }
 
             if (_exportFormat == GltfExportFormat.GlTF)
             {

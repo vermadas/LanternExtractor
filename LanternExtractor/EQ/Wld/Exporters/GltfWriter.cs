@@ -1022,7 +1022,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         }
 
         private void AddAnimatedMeshMorphTargets(Mesh mesh, IMeshBuilder<MaterialBuilder> gltfMesh,
-            string meshName, Matrix4x4 transformMatrix, Dictionary<VertexPositionNormal, int> gltfVertexPositionToWldVertexIndex, bool mirrorAxis)
+            string meshName, Matrix4x4 transformMatrix, Dictionary<VertexPositionNormal, int> gltfVertexPositionToWldVertexIndex, bool mirrorXAxis)
         {
             var frameTimes = new List<float>();
             var weights = new List<float>();
@@ -1037,7 +1037,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 {
                     var vertexIndex = gltfVertexPositionToWldVertexIndex[vertexGeometry];
                     var wldVertexPositionForFrame = vertexPositionsForFrame[vertexIndex];
-                    var newPosition = Vector3.Transform((wldVertexPositionForFrame + mesh.Center).ToVector3(true), mirrorAxis ? MirrorXAxisMatrix : Matrix4x4.Identity);
+                    var newPosition = Vector3.Transform((wldVertexPositionForFrame + mesh.Center).ToVector3(true), mirrorXAxis ? MirrorXAxisMatrix : Matrix4x4.Identity);
                     vertexGeometry.TryGetNormal(out var originalNormal);
                     morphTarget.SetVertex(vertexGeometry, new VertexPositionNormal(newPosition, originalNormal));
                 }
@@ -1186,14 +1186,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private readonly Matrix4x4 _transformMatrix;
 		private static readonly Vector4 DefaultVertexColor = new Vector4(0f, 0f, 0f, 1f); // Black
 
-		public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles, bool mirrorAxis = true)
+		public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles, bool mirrorXAxis = true)
         {
             _wldMesh = wldMesh;
             _separateTwoFacedTriangles = separateTwoFacedTriangles;
             _triangleSetComparer = new TriangleVertexSetComparer();
             _uniqueTriangles = new HashSet<DataTypes.Polygon>(_triangleSetComparer);
             _wldVertexIndexToDuplicatedVertexNormals = new Dictionary<int, Vector3>();
-            _transformMatrix = mirrorAxis ? Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0)) : Matrix4x4.Identity;
+            _transformMatrix = mirrorXAxis ? Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0)) : Matrix4x4.Identity;
         }
 
         public DataTypes.Polygon GetTriangle(int triangleIndex)

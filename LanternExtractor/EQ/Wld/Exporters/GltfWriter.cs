@@ -1158,11 +1158,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public ObjInstance(Door door)
         {
             Name = door.Name;
-            Position = new Vector3(
+            Position = Vector3.Transform(new Vector3(
                 door.Position.Y,
                 door.Position.Z,
                 door.Position.X
-            );
+            ), GltfWriter.MirrorXAxisMatrix);
             Rotation = new Vector3(0f, door.Incline * 360f / 512f, -(float)(door.Heading * 360d / 512d));
             Scale = new Vector3(1f);
 

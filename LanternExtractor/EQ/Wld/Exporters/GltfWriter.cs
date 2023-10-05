@@ -207,9 +207,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
             "otplant103b",
             "otplant103c"
         };
-        private static readonly float ZoneScaleMultiplier = 0.2f;
-        private static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
-        private static readonly Matrix4x4 CorrectedWorldMatrix = MirrorXAxisMatrix * Matrix4x4.CreateScale(ZoneScaleMultiplier);
+        private readonly float ZoneScaleMultiplier;
+        private readonly Matrix4x4 CorrectedWorldMatrix;
+        public static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
         private static readonly Matrix4x4 CorrectedSingularActorMatrix = Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
 		#endregion
 
@@ -221,18 +221,19 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<string, List<(string, string)>> _skeletonChildrenAttachBones;
         private bool _separateTwoFacedTriangles;
 
-        public GltfWriter(bool exportVertexColors, GltfExportFormat exportFormat, ILogger logger, bool separateTwoFacedTriangles = false)
+        public GltfWriter(Settings settings, GltfExportFormat exportFormat, ILogger logger)
         {
-            _exportVertexColors = exportVertexColors;
+            _exportVertexColors = settings.ExportGltfVertexColors;
             _exportFormat = exportFormat;
             _logger = logger;
-
+            ZoneScaleMultiplier = settings.ExportZoneScale;
+            CorrectedWorldMatrix = Matrix4x4.CreateScale(ZoneScaleMultiplier);
             Materials = new Dictionary<string, MaterialBuilder>();
             _meshMaterialsToSkip = new HashSet<string>();
             _skeletons = new Dictionary<string, List<NodeBuilder>>();
             _skeletonChildrenAttachBones = new Dictionary<string, List<(string, string)>>();
             _sharedMeshes = new Dictionary<string, IMeshBuilder<MaterialBuilder>>();
-            _separateTwoFacedTriangles = separateTwoFacedTriangles;
+            _separateTwoFacedTriangles = settings.SeparateTwoFacedTriangles;
             _scene = new SceneBuilder();
         }
 
@@ -337,7 +338,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             var meshName = meshNameOverride ?? FragmentNameCleaner.CleanName(mesh);
 			var transformMatrix = objectInstance == null ? Matrix4x4.Identity : CreateTransformMatrixForObjectInstance(objectInstance);
-			transformMatrix = transformMatrix *= isZoneMesh ? CorrectedWorldMatrix : MirrorXAxisMatrix;
+			transformMatrix = transformMatrix *= isZoneMesh ? CorrectedWorldMatrix : Matrix4x4.Identity;
 
 			var canExportVertexColors = _exportVertexColors &&
                 ((objectInstance?.Colors?.Colors != null && objectInstance.Colors.Colors.Any())
@@ -377,7 +378,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var gltfVertexPositionToWldVertexIndex = new Dictionary<VertexPositionNormal, int>();
             
             var polygonIndex = 0;
-            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles);
+            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, isZoneMesh);
             foreach (var materialGroup in mesh.MaterialGroups)
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
@@ -419,22 +420,22 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     if (!canExportVertexColors && !isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexTexture1, VertexEmpty>
-                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance, isZoneMesh);
                     }
                     else if (!canExportVertexColors && isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexTexture1, VertexJoints4>
-                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance, isZoneMesh);
                     }
                     else if (canExportVertexColors && !isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexColor1Texture1, VertexEmpty>
-                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance, isZoneMesh);
                     }
                     else //(canExportVertexColors && isSkinned)
                     {
                         triangleGtlfVpToWldVi = AddTriangleToMesh<VertexPositionNormal, VertexColor1Texture1, VertexJoints4>
-                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance);
+                            (primitive, meshHelper, polygonIndex++, canExportVertexColors, isSkinned, singularBoneIndex, usesMobPieces, objectInstance, isZoneMesh);
                     }
                     triangleGtlfVpToWldVi.ToList().ForEach(kv => gltfVertexPositionToWldVertexIndex[kv.Key] = kv.Value);
                 }
@@ -447,7 +448,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 if (mesh.AnimatedVerticesReference != null &&
                         !AnimatedMeshesSharpGltfWillNotExportMorphTargets.Contains(FragmentNameCleaner.CleanName(mesh, true)))
                 {
-                    AddAnimatedMeshMorphTargets(mesh, gltfMesh, meshName, transformMatrix, gltfVertexPositionToWldVertexIndex);
+                    AddAnimatedMeshMorphTargets(mesh, gltfMesh, meshName, transformMatrix, gltfVertexPositionToWldVertexIndex, isZoneMesh);
                     // mesh added to scene in ^ method
                 }
                 else if (AnimatedDoorObjectOpenTypes.TryGetValue(meshName, out var openType))
@@ -552,7 +553,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 foreach (var lightInstance in uniqueLightGroups)
                 {
                     var position = lightInstance.Position.ToVector3(swapYandZ: true);
-                    var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix;
+                    var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix * MirrorXAxisMatrix;
                     Matrix4x4.Decompose(translationMatrix, out _, out _, out var translation);
 					var lightName = lightInstance.LightReference?.LightSource?.Name;
 					var node = new NodeBuilder(lightName != null ? lightName.Split('_')[0] : "");
@@ -875,7 +876,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             var transformMatrix = Matrix4x4.CreateScale(instance.Scale)
                 * Matrix4x4.CreateFromYawPitchRoll(
-                    (float)(instance.Rotation.Z * Math.PI)/180f,
+                    (float)(-1 * instance.Rotation.Z * Math.PI)/180f,
                     (float)(instance.Rotation.X * Math.PI)/180f,
                     (float)(instance.Rotation.Y * Math.PI)/180f
                 )
@@ -951,7 +952,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private IDictionary<VertexPositionNormal,int> AddTriangleToMesh<TvG, TvM, TvS>(
             IPrimitiveBuilder primitive, WldMeshHelper meshHelper,
             int polygonIndex, bool canExportVertexColors, bool isSkinned,
-            int singularBoneIndex = -1, bool usesMobPieces = false, ObjInstance objectInstance = null)
+            int singularBoneIndex = -1, bool usesMobPieces = false, ObjInstance objectInstance = null, bool isZoneMesh = false)
                 where TvG : struct, IVertexGeometry
                 where TvM : struct, IVertexMaterial
                 where TvS : struct, IVertexSkinning
@@ -966,10 +967,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var vertex0 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v0, vertexNormals.v0, vertexUvs.v0, vertexColors.v0, isSkinned, boneIndexes.v0);
             var vertex1 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v1, vertexNormals.v1, vertexUvs.v1, vertexColors.v1, isSkinned, boneIndexes.v1);
             var vertex2 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v2, vertexNormals.v2, vertexUvs.v2, vertexColors.v2, isSkinned, boneIndexes.v2);
-            if (isSkinned)
+
+            // Always use clockwise rotation to offset the mirrored x axis
+            // If we're embedding in a zone or applying to a skinned model
+            if (objectInstance != null || isSkinned || isZoneMesh)
             {
-                // Normals come out wrong for skinned models unless we add the triangle
-                // vertices in reverse order
                 primitive.AddTriangle(vertex2, vertex1, vertex0);
             }
             else
@@ -1020,7 +1022,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         }
 
         private void AddAnimatedMeshMorphTargets(Mesh mesh, IMeshBuilder<MaterialBuilder> gltfMesh,
-            string meshName, Matrix4x4 transformMatrix, Dictionary<VertexPositionNormal, int> gltfVertexPositionToWldVertexIndex)
+            string meshName, Matrix4x4 transformMatrix, Dictionary<VertexPositionNormal, int> gltfVertexPositionToWldVertexIndex, bool mirrorXAxis)
         {
             var frameTimes = new List<float>();
             var weights = new List<float>();
@@ -1035,7 +1037,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 {
                     var vertexIndex = gltfVertexPositionToWldVertexIndex[vertexGeometry];
                     var wldVertexPositionForFrame = vertexPositionsForFrame[vertexIndex];
-                    var newPosition = (wldVertexPositionForFrame + mesh.Center).ToVector3(true);
+                    var newPosition = Vector3.Transform((wldVertexPositionForFrame + mesh.Center).ToVector3(true), mirrorXAxis ? MirrorXAxisMatrix : Matrix4x4.Identity);
                     vertexGeometry.TryGetNormal(out var originalNormal);
                     morphTarget.SetVertex(vertexGeometry, new VertexPositionNormal(newPosition, originalNormal));
                 }
@@ -1048,7 +1050,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             var instance = _scene.AddRigidMesh(gltfMesh, node);
             instance.Content.UseMorphing().SetValue(weights.ToArray());
-            var track = instance.Content.UseMorphing("Default");
+            var track = instance.Content.UseMorphing($"Default_{mesh.Name}");
             var morphTargetElements = new float[frameTimes.Count];
 
             for (var i = 0; i < frameTimes.Count; i++)
@@ -1146,7 +1148,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public ObjInstance(ObjectInstance objectInstanceFragment)
         {
             Name = objectInstanceFragment.ObjectName;
-            Position = objectInstanceFragment.Position.ToVector3(true);
+            Position = Vector3.Transform(objectInstanceFragment.Position.ToVector3(true), GltfWriter.MirrorXAxisMatrix);
             Rotation = objectInstanceFragment.Rotation.ToVector3();
             Scale = objectInstanceFragment.Scale.ToVector3();
             Colors = objectInstanceFragment.Colors;
@@ -1156,11 +1158,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public ObjInstance(Door door)
         {
             Name = door.Name;
-            Position = new Vector3(
+            Position = Vector3.Transform(new Vector3(
                 door.Position.Y,
                 door.Position.Z,
                 door.Position.X
-            );
+            ), GltfWriter.MirrorXAxisMatrix);
             Rotation = new Vector3(0f, door.Incline * 360f / 512f, -(float)(door.Heading * 360d / 512d));
             Scale = new Vector3(1f);
 
@@ -1181,16 +1183,17 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private readonly ISet<DataTypes.Polygon> _uniqueTriangles;
         private readonly IDictionary<int, Vector3> _wldVertexIndexToDuplicatedVertexNormals;
         private readonly TriangleVertexSetComparer _triangleSetComparer;
-
+        private readonly Matrix4x4 _transformMatrix;
 		private static readonly Vector4 DefaultVertexColor = new Vector4(0f, 0f, 0f, 1f); // Black
 
-		public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles)
+		public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles, bool mirrorXAxis = true)
         {
             _wldMesh = wldMesh;
             _separateTwoFacedTriangles = separateTwoFacedTriangles;
             _triangleSetComparer = new TriangleVertexSetComparer();
             _uniqueTriangles = new HashSet<DataTypes.Polygon>(_triangleSetComparer);
             _wldVertexIndexToDuplicatedVertexNormals = new Dictionary<int, Vector3>();
+            _transformMatrix = mirrorXAxis ? Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0)) : Matrix4x4.Identity;
         }
 
         public DataTypes.Polygon GetTriangle(int triangleIndex)
@@ -1201,9 +1204,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public (Vector3 v0, Vector3 v1, Vector3 v2) GetVertexPositions(DataTypes.Polygon triangle)
         {
 			(Vector3 v0, Vector3 v1, Vector3 v2) vertexPositions = (
-			(_wldMesh.Vertices[triangle.Vertex1] + _wldMesh.Center).ToVector3(true),
-			(_wldMesh.Vertices[triangle.Vertex2] + _wldMesh.Center).ToVector3(true),
-			(_wldMesh.Vertices[triangle.Vertex3] + _wldMesh.Center).ToVector3(true));
+			Vector3.Transform((_wldMesh.Vertices[triangle.Vertex1] + _wldMesh.Center).ToVector3(true), _transformMatrix),
+            Vector3.Transform((_wldMesh.Vertices[triangle.Vertex2] + _wldMesh.Center).ToVector3(true), _transformMatrix),
+            Vector3.Transform((_wldMesh.Vertices[triangle.Vertex3] + _wldMesh.Center).ToVector3(true), _transformMatrix));
 
             return vertexPositions;
 		}
@@ -1223,9 +1226,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
 			}
 
 			(Vector3 v0, Vector3 v1, Vector3 v2) vertexNormals = (
-			    Vector3.Normalize(_wldMesh.Normals[triangle.Vertex1].ToVector3(true)),
-	            Vector3.Normalize(_wldMesh.Normals[triangle.Vertex2].ToVector3(true)),
-	            Vector3.Normalize(_wldMesh.Normals[triangle.Vertex3].ToVector3(true)));
+			    Vector3.Transform(Vector3.Normalize(_wldMesh.Normals[triangle.Vertex1].ToVector3(true)), _transformMatrix),
+                Vector3.Transform(Vector3.Normalize(_wldMesh.Normals[triangle.Vertex2].ToVector3(true)), _transformMatrix),
+                Vector3.Transform(Vector3.Normalize(_wldMesh.Normals[triangle.Vertex3].ToVector3(true)), _transformMatrix));
 
             return vertexNormals;
 		}

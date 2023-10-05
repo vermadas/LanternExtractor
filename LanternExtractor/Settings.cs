@@ -111,6 +111,11 @@ namespace LanternExtractor
 		/// </summary>
 		public bool ExportZoneObjectsWithSkeletalAnimations { get; private set; }
 
+        /// <summary>
+		/// Sets the export scale of the zone when exported
+		/// </summary>
+        public float ExportZoneScale { get; private set; }
+
 		/// <summary>
 		/// Export vertex colors with glTF model. Default behavior of glTF renderers
 		/// is to mix the vertex color with the base color, which will not look right.
@@ -245,6 +250,11 @@ namespace LanternExtractor
 			{
 				ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(parsedSettings["ExportZoneObjectsWithSkeletalAnimations"]);
 			}
+
+            if (parsedSettings.ContainsKey("ExportZoneScale"))
+            {
+                ExportZoneScale = Convert.ToSingle(parsedSettings["ExportZoneScale"]);
+            }
 
 			if (parsedSettings.ContainsKey("ModelExportFormat"))
             {

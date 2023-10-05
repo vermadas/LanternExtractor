@@ -92,6 +92,10 @@ LightIntensityMultiplier = 0.0
 # (glTF)
 ExportZoneObjectsWithSkeletalAnimations = false
 
+# Scale for exporting zone for glTF export
+# (glTF)
+ExportZoneScale = 0.2
+
 # Export vertex colors
 # Default behavior of glTF renderers is to mix the vertex color with the base color,
 # which will not look right. Only turn this on if you intend to do some post-processing that

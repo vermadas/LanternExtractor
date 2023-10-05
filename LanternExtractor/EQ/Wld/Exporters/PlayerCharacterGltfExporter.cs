@@ -27,7 +27,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (skeleton == null) return;
 
             var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-            var gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+            var gltfWriter = new GltfWriter(settings, exportFormat, logger);
 
 			pcEquipment.FixHelmMaterial();
 
@@ -72,7 +72,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     continue;
                 }
 				var exportFormat = settings.ExportGltfInGlbFormat ? GltfExportFormat.Glb : GltfExportFormat.GlTF;
-				gltfWriter = new GltfWriter(settings.ExportGltfVertexColors, exportFormat, logger, settings.SeparateTwoFacedTriangles);
+				gltfWriter = new GltfWriter(settings, exportFormat, logger);
 
 				AddMeshDataToGltfWriter(pcModel, gltfWriter, wldEqFile, skeleton,
 	                exportFolder, logger, settings);

@@ -378,7 +378,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var gltfVertexPositionToWldVertexIndex = new Dictionary<VertexPositionNormal, int>();
             
             var polygonIndex = 0;
-            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, isZoneMesh);
+            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, isZoneMesh || isSkinned);
             foreach (var materialGroup in mesh.MaterialGroups)
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
@@ -969,8 +969,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var vertex2 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v2, vertexNormals.v2, vertexUvs.v2, vertexColors.v2, isSkinned, boneIndexes.v2);
 
             // Always use clockwise rotation to offset the mirrored x axis
-            // If we're embedding in a zone or applying to a skinned model
-            if (objectInstance != null || isSkinned || isZoneMesh)
+            // If we're embedding in a zone
+            if (objectInstance != null || isZoneMesh)
             {
                 primitive.AddTriangle(vertex2, vertex1, vertex0);
             }
@@ -1103,6 +1103,19 @@ namespace LanternExtractor.EQ.Wld.Exporters
             rotationQuaternion = Quaternion.Normalize(rotationQuaternion);
             var translationVector = boneTransform.Translation.ToVector3(true);
             translationVector.Z = -translationVector.Z;
+
+            // Gets sort of close? The limbs are all intact but are rotating in the wrong direction on one or more of the axes
+            // var rotationQuaternion = new Quaternion()
+            // {
+            //     X = (float)(boneTransform.Rotation.x * -1 * Math.PI)/180,
+            //     Y = (float)(boneTransform.Rotation.z * Math.PI)/180,
+            //     Z = (float)(boneTransform.Rotation.y * Math.PI * -1)/180,
+            //     W = (float)(boneTransform.Rotation.w * Math.PI)/180
+            // };
+            // rotationQuaternion = Quaternion.Normalize(rotationQuaternion);
+            // var translationVector = boneTransform.Translation.ToVector3(true);
+            // // translationVector.Z = -translationVector.Z;
+
             if (!AnimationDescriptions.TryGetValue(animationKey, out var animationDescription))
             {
                 animationDescription = animationKey;

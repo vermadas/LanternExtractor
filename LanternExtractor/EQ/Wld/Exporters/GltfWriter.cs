@@ -878,7 +878,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 * Matrix4x4.CreateFromYawPitchRoll(
                     (float)(-1 * instance.Rotation.Z * Math.PI)/180f,
                     (float)(instance.Rotation.X * Math.PI)/180f,
-                    (float)(instance.Rotation.Y * Math.PI)/180f
+                    (float)(-1 * instance.Rotation.Y * Math.PI)/180f
                 )
                 * Matrix4x4.CreateTranslation(instance.Position);
             return transformMatrix;

@@ -208,37 +208,41 @@ namespace LanternExtractor.EQ
 		private static WldFileEquipment InitCombinedEquipmentWld(ILogger logger, Settings settings, string zoneName, string rootFolder)
 		{
 			WldFileEquipment mainWldEqFile = null;
-			WldFileEquipment injectedWldEqFile = null;
-			var eqFiles = new string[] { "gequip2", "gequip" };
-			for (int i = 0; i < 2; i++)
-			{
-				var eqFile = eqFiles[i];
-				var eqFilePath = Path.Combine(settings.EverQuestDirectory, $"{eqFile}.s3d");
-				var eqS3dArchive = new PfsArchive(eqFilePath, logger);
-				if (!eqS3dArchive.Initialize())
-				{
-					logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + eqFilePath);
-					return null;
-				}
-				var eqWldFileName = eqFile + LanternStrings.WldFormatExtension;
-				var eqWldFileInArchive = eqS3dArchive.GetFile(eqWldFileName);
-				WldFileEquipment wldEqFile;
-				if (i == 0)
-				{
-					wldEqFile = new WldFileEquipment(eqWldFileInArchive, zoneName, WldType.Equipment, logger, settings);
-					injectedWldEqFile = wldEqFile;
-				}
-				else
-				{
-					wldEqFile = new WldFileEquipment(eqWldFileInArchive, zoneName, WldType.Equipment, logger, settings, new List<WldFile>() { injectedWldEqFile });
-					mainWldEqFile = wldEqFile;
-				}
-				wldEqFile.Initialize(rootFolder, false);
-				eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
-				wldEqFile.S3dArchiveReference = eqS3dArchive;
-			}
+            var eqFiles = new string[] { "gequip8", "gequip6", "gequip5", "gequip4", "gequip3", "gequip2", "gequip" };
+            var mainWldEqFileName = eqFiles.Last();
+            var filesToInject = new List<WldFile>();
+            foreach (var eqFile in eqFiles)
+            {
+                var eqFilePath = Path.Combine(settings.EverQuestDirectory, $"{eqFile}.s3d");
 
-			return mainWldEqFile;
+                if (!File.Exists(eqFilePath)) continue;
+
+                var eqS3dArchive = new PfsArchive(eqFilePath, logger);
+                if (!eqS3dArchive.Initialize())
+                {
+                    logger.LogError("LanternExtractor: Failed to initialize PFS archive at path: " + eqFilePath);
+                    return null;
+                }
+                var eqWldFileName = eqFile + LanternStrings.WldFormatExtension;
+                var eqWldFileInArchive = eqS3dArchive.GetFile(eqWldFileName);
+                WldFileEquipment wldEqFile;
+
+                if (eqFile == mainWldEqFileName)
+                {
+                    wldEqFile = new WldFileEquipment(eqWldFileInArchive, zoneName, WldType.Equipment, logger, settings, filesToInject);
+                    mainWldEqFile = wldEqFile;
+                }
+                else
+                {
+                    wldEqFile = new WldFileEquipment(eqWldFileInArchive, zoneName, WldType.Equipment, logger, settings);
+                    filesToInject.Add(wldEqFile);
+                }
+                wldEqFile.Initialize(rootFolder, false);
+                eqS3dArchive.FilenameChanges = wldEqFile.FilenameChanges;
+                wldEqFile.S3dArchiveReference = eqS3dArchive;
+            }
+
+            return mainWldEqFile;
 		}
 
 		private static void ExtractArchiveZone(string path, string rootFolder, ILogger logger, Settings settings,

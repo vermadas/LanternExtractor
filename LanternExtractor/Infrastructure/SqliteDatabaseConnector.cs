@@ -4,7 +4,6 @@ using LanternExtractor.EQ.Wld.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Entity.Infrastructure;
 using System.Data.SQLite;
 using System.Drawing;
 using System.Numerics;
@@ -46,9 +45,9 @@ namespace LanternExtractor.Infrastructure
                         {
                             Name = ((string)reader[LanternDb.Items_NameColumn]).Trim(),
                             IdFile = ((string)reader[LanternDb.Items_IdFileColumn]).Trim(),
-                            Slots = (int)reader[LanternDb.Items_SlotsColumn],
-                            Material = (int)reader[LanternDb.Items_MaterialColumn],
-                            Color = (int)reader[LanternDb.Items_ColorColumn]
+                            Slots = Convert.ToInt32(reader[LanternDb.Items_SlotsColumn]),
+                            Material = Convert.ToInt32(reader[LanternDb.Items_MaterialColumn]),
+                            Color = Convert.ToInt32(reader[LanternDb.Items_ColorColumn])
                         };
                     }
                 }
@@ -85,10 +84,10 @@ namespace LanternExtractor.Infrastructure
                                 (float)(double)reader[LanternDb.Doors_PosYColumn],
                                 (float)(double)reader[LanternDb.Doors_PosZColumn]
                             ),
-                            OpenType = (int)reader[LanternDb.Doors_OpenTypeColumn],
+                            OpenType = Convert.ToInt32(reader[LanternDb.Doors_OpenTypeColumn]),
                             Heading = (double)reader[LanternDb.Doors_HeadingColumn],
-                            Incline = (int)reader[LanternDb.Doors_InclineColumn],
-                            Width = (int)reader[LanternDb.Doors_WidthColumn]
+                            Incline = Convert.ToInt32(reader[LanternDb.Doors_InclineColumn]),
+                            Width = Convert.ToInt32(reader[LanternDb.Doors_WidthColumn])
                         };
 
                         doors.Add(door);
@@ -121,10 +120,10 @@ namespace LanternExtractor.Infrastructure
 					{
 						var pcModel = new PlayerCharacterModel()
 						{
-                            Face = (int)(long)reader[LanternDb.Npc_FaceColumn]
+                            Face = Convert.ToInt32((long)reader[LanternDb.Npc_FaceColumn])
 						};
-                        var raceId = (int)reader[LanternDb.Npc_RaceColumn];
-                        var gender = (int)reader[LanternDb.Npc_GenderColumn];
+                        var raceId = Convert.ToInt32(reader[LanternDb.Npc_RaceColumn]);
+                        var gender = Convert.ToInt32(reader[LanternDb.Npc_GenderColumn]);
                         pcModel.RaceGender = GlobalReference.NpcDatabaseToClientTranslator
                             .GetClientModelForRaceIdAndGender(raceId, gender);
 
@@ -141,32 +140,32 @@ namespace LanternExtractor.Infrastructure
 						var mainMaterial = 0;
                         if (reader[LanternDb.Npc_TextureColumn].GetType() != typeof(DBNull))
                         {
-							mainMaterial = (int)reader[LanternDb.Npc_TextureColumn];
+							mainMaterial = Convert.ToInt32(reader[LanternDb.Npc_TextureColumn]);
 						}
                         pcModel.Head = new Helm()
                         {
                             Material = GetPlayerCharacterEquipmentMaterial(mainMaterial, 
-                                (int)reader[LanternDb.Npc_HelmTextureColumn])
+                                Convert.ToInt32(reader[LanternDb.Npc_HelmTextureColumn]))
                         };
                         pcModel.Wrist = new Equipment()
                         {
                             Material = GetPlayerCharacterEquipmentMaterial(mainMaterial,
-                                (int)reader[LanternDb.Npc_BracerTextureColumn])
+                                Convert.ToInt32(reader[LanternDb.Npc_BracerTextureColumn]))
                         };
 						pcModel.Arms = new Equipment()
 						{
 							Material = GetPlayerCharacterEquipmentMaterial(mainMaterial,
-								(int)reader[LanternDb.Npc_ArmTextureColumn])
+								Convert.ToInt32(reader[LanternDb.Npc_ArmTextureColumn]))
 						};
 						pcModel.Hands = new Equipment()
 						{
 							Material = GetPlayerCharacterEquipmentMaterial(mainMaterial,
-		                        (int)reader[LanternDb.Npc_HandTextureColumn])
+		                        Convert.ToInt32(reader[LanternDb.Npc_HandTextureColumn]))
 						};
                         Color? chestColor = null;
                         if (reader[LanternDb.ChestColorAlias].GetType() != typeof(DBNull))
                         {
-                            var colorInt = (int)reader[LanternDb.ChestColorAlias];
+                            var colorInt = Convert.ToInt32(reader[LanternDb.ChestColorAlias]);
                             if (colorInt > 0)
                             {
 								chestColor = ColorTranslator.FromHtml($"#{colorInt:X6}");
@@ -175,20 +174,20 @@ namespace LanternExtractor.Infrastructure
 						pcModel.Chest = new Equipment()
 						{
 							Material = GetPlayerCharacterEquipmentMaterial(mainMaterial,
-								(int)reader[LanternDb.Npc_ChestTextureColumn], true),
+								Convert.ToInt32(reader[LanternDb.Npc_ChestTextureColumn]), true),
                             Color = chestColor
 						};
 						pcModel.Legs = new Equipment()
 						{
 							Material = GetPlayerCharacterEquipmentMaterial(mainMaterial,
-		                        (int)reader[LanternDb.Npc_LegTextureColumn])
+		                        Convert.ToInt32(reader[LanternDb.Npc_LegTextureColumn]))
 						};
 						pcModel.Feet = new Equipment()
 						{
 							Material = GetPlayerCharacterEquipmentMaterial(mainMaterial,
-								(int)reader[LanternDb.Npc_FeetTextureColumn])
+								Convert.ToInt32(reader[LanternDb.Npc_FeetTextureColumn]))
 						};
-                        var npcId = (int)(long)reader[LanternDb.Npc_IdColumn];
+                        var npcId = Convert.ToInt32((long)reader[LanternDb.Npc_IdColumn]);
                         var npcName = ((string)reader[LanternDb.Npc_NameColumn]).Trim().Trim('#');
                         pcModels.Add(($"{npcName}_{npcId}", pcModel));
 					}
@@ -232,13 +231,13 @@ namespace LanternExtractor.Infrastructure
 
                         var npc = new Npc()
                         {
-                            Race = (int)reader[LanternDb.Npc_RaceColumn],
-                            Gender = (NpcGender)(int)reader[LanternDb.Npc_GenderColumn],
-                            Face = (int)(long)reader[LanternDb.Npc_FaceColumn],
-                            Texture = (int)reader[LanternDb.Npc_TextureColumn],
+                            Race = Convert.ToInt32(reader[LanternDb.Npc_RaceColumn]),
+                            Gender = (NpcGender)Convert.ToInt32(reader[LanternDb.Npc_GenderColumn]),
+                            Face = Convert.ToInt32((long)reader[LanternDb.Npc_FaceColumn]),
+                            Texture = Convert.ToInt32(reader[LanternDb.Npc_TextureColumn]),
                             Primary = primaryId,
                             Secondary = secondaryId,
-                            HelmTexture = (int)reader[LanternDb.Npc_HelmTextureColumn]
+                            HelmTexture = Convert.ToInt32(reader[LanternDb.Npc_HelmTextureColumn])
                         };
 
 						if (primaryId > 0 && !GltfCharacterHeldEquipmentHelper.CanWield(npc.Race, npc.Gender, primaryId))
@@ -298,7 +297,7 @@ namespace LanternExtractor.Infrastructure
 
         private void GetPrimaryAndSecondaryIdsFromReader(SQLiteDataReader reader, out int primaryId, out int secondaryId)
         {
-			primaryId = (int)(long)reader[LanternDb.Npc_MeleeTexture1Column];
+			primaryId = Convert.ToInt32((long)reader[LanternDb.Npc_MeleeTexture1Column]);
             secondaryId = 0;
 			var primaryItemType = -1;
 			if (primaryId == 0 && reader[LanternDb.PrimaryIdFileAlias].GetType() != typeof(DBNull))
@@ -311,11 +310,11 @@ namespace LanternExtractor.Infrastructure
 			}
 			if (reader[LanternDb.PrimaryItemTypeAlias].GetType() != typeof(DBNull))
 			{
-				primaryItemType = (int)reader[LanternDb.PrimaryItemTypeAlias];
+				primaryItemType = Convert.ToInt32(reader[LanternDb.PrimaryItemTypeAlias]);
 			}
 			if (!TwoHandedItemTypes.Contains(primaryItemType))
 			{
-				secondaryId = (int)(long)reader[LanternDb.Npc_MeleeTexture2Column];
+				secondaryId = Convert.ToInt32((long)reader[LanternDb.Npc_MeleeTexture2Column]);
 				if (secondaryId == 0)
 				{
 					if (reader[LanternDb.Secondary0IdFileAlias].GetType() != typeof(DBNull))

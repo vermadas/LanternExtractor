@@ -491,9 +491,8 @@ namespace LanternExtractor.EQ.Wld
                 case WldType.Characters when (_settings.ExportCharactersToSingleFolder &&
                         _settings.ModelExportFormat == ModelExportFormat.Intermediate):
                     return RootExportFolder + "characters/";
-                case WldType.Equipment when _settings.ModelExportFormat == ModelExportFormat.GlTF &&
-                        _zoneName == "gequip2":
-                    return RootExportFolder + "gequip2" + "/";
+                case WldType.Equipment when _settings.ModelExportFormat == ModelExportFormat.GlTF:
+                    return RootExportFolder + _zoneName + "/";
                 default:
                     return RootExportFolder + ShortnameHelper.GetCorrectZoneShortname(_zoneName) + "/";
             }

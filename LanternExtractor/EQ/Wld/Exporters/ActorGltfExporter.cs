@@ -561,8 +561,16 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var meshes = new List<Mesh>() { skeleton.Meshes[0] };
 					if (npc.HelmTexture > 0 && skeleton.SecondaryMeshes.Any())
 					{
-						meshes.Add(skeleton.SecondaryMeshes[npc.HelmTexture - 1]);
-					}
+                        var helmTexture = npc.HelmTexture - 1;
+                        if (helmTexture >= skeleton.SecondaryMeshes.Count)
+                        {
+                            meshes.Add(skeleton.SecondaryMeshes.First());
+                        }
+                        else
+                        {
+                            meshes.Add(skeleton.SecondaryMeshes[helmTexture]);
+                        }
+                    }
 					else if (skeleton.Meshes.Count > 1)
 					{
 						meshes.Add(skeleton.Meshes[1]);

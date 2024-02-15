@@ -410,7 +410,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                 if (baseColor != null)
                 {
-                    gltfMaterial = gltfMaterial.WithBaseColor(baseColor.Value.ToVector4());
+                    gltfMaterial = gltfMaterial.WithBaseColor(baseColor.Value.ToVector4().DecodeRgbToLinear());
                 }
 
                 var primitive = gltfMesh.UsePrimitive(gltfMaterial);
@@ -833,7 +833,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var gltfMaterial = new MaterialBuilder(materialName)
-                .WithDoubleSide(false)
+                .WithDoubleSide(false /* eqMaterial.IsTwoSided */)
                 .WithMetallicRoughnessShader()
                 .WithChannelParam(KnownChannel.MetallicRoughness, KnownProperty.RoughnessFactor, MaterialRoughness)
                 .WithChannelParam(KnownChannel.MetallicRoughness, KnownProperty.MetallicFactor, 0f)
@@ -1452,6 +1452,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public static Vector4 ToVector4(this Color color)
         {
             return new Vector4(color.R/255.0f, color.G/255.0f, color.B/255.0f, color.A/255.0f);
+        }
+
+        public static Vector4 DecodeRgbToLinear(this Vector4 color)
+        {
+            return new Vector4(
+                (float)Math.Pow(color.X, 2.2f),
+                (float)Math.Pow(color.Y, 2.2f),
+                (float)Math.Pow(color.Z, 2.2f),
+                color.W);
         }
     }
 

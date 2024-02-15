@@ -156,7 +156,7 @@ namespace LanternExtractor.EQ.Wld.Fragments
             {
                 if (isNewWldFormat)
                 {
-                    TextureUvCoordinates.Add(new vec2(Reader.ReadInt32() / 256.0f, Reader.ReadInt32() / 256.0f));
+                    TextureUvCoordinates.Add(new vec2(Reader.ReadSingle(), Reader.ReadSingle()));
                 }
                 else
                 {

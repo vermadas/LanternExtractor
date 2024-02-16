@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using LanternExtractor.EQ.Pfs;
+using LanternExtractor.EQ.Archive;
 using LanternExtractor.EQ.Wld.DataTypes;
 using LanternExtractor.EQ.Wld.Fragments;
 using LanternExtractor.EQ.Wld.Helpers;
@@ -14,8 +14,8 @@ namespace LanternExtractor.EQ.Wld
     public class WldFileCharacters : WldFile
     {
         public Dictionary<string, string> AnimationSources = new Dictionary<string, string>();
-        
-        public WldFileCharacters(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
+
+        public WldFileCharacters(ArchiveFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
             List<WldFile> wldFilesToInject = null) : base(wldFile, zoneName, type, logger, settings, wldFilesToInject)
         {
             ParseAnimationSources();
@@ -54,10 +54,10 @@ namespace LanternExtractor.EQ.Wld
             string filename = "ClientData/animationsources.txt";
             if (!File.Exists(filename))
             {
-                _logger.LogError("WldFileCharacters: No animationsources.txt file found.");
+                Logger.LogError("WldFileCharacters: No animationsources.txt file found.");
                 return;
             }
-            
+
             string fileText = File.ReadAllText(filename);
             List<List<string>> parsedText = TextParser.ParseTextByDelimitedLines(fileText, ',', '#');
 
@@ -67,14 +67,14 @@ namespace LanternExtractor.EQ.Wld
                 {
                     continue;
                 }
-                
-                AnimationSources[line[0].ToLower()] = line[1].ToLower();
-            }        
+
+                _animationSources[line[0].ToLower()] = line[1].ToLower();
+            }
         }
-        
+
         private string GetAnimationModelLink(string modelName)
         {
-            return !AnimationSources.ContainsKey(modelName) ? modelName : AnimationSources[modelName];
+            return !_animationSources.ContainsKey(modelName) ? modelName : _animationSources[modelName];
         }
 
         protected override void ProcessData()
@@ -84,25 +84,25 @@ namespace LanternExtractor.EQ.Wld
             BuildSlotMapping();
             FindMaterialVariants();
 
-            if (_settings.ExportCharactersToSingleFolder)
+            if (Settings.ExportCharactersToSingleFolder)
             {
                 var characterFixer = new CharacterFixer();
                 characterFixer.Fix(this);
             }
-            
+
             foreach (var skeleton in GetFragmentsOfType<SkeletonHierarchy>())
             {
-                skeleton.BuildSkeletonData(_wldType == WldType.Characters);
+                skeleton.BuildSkeletonData(WldType == Wld.WldType.Characters);
             }
         }
-        
+
         private void BuildSlotMapping()
         {
             var materialLists = GetFragmentsOfType<MaterialList>();
 
             foreach (var list in materialLists)
             {
-                list.BuildSlotMapping(_logger);
+                list.BuildSlotMapping(Logger);
             }
         }
 
@@ -130,7 +130,7 @@ namespace LanternExtractor.EQ.Wld
                     if ((materialListContainsRobe && materialIsRobe)
                         || materialName.StartsWith(materialListModelName))
                     {
-                        list.AddVariant(material, _logger);
+                        list.AddVariant(material, Logger);
                     }
                 }
             }
@@ -141,8 +141,8 @@ namespace LanternExtractor.EQ.Wld
                 {
                     continue;
                 }
-                
-                _logger.LogWarning("WldFileCharacters: Material not assigned: " + material.Name);
+
+                Logger.LogWarning("WldFileCharacters: Material not assigned: " + material.Name);
             }
         }
 
@@ -157,17 +157,17 @@ namespace LanternExtractor.EQ.Wld
 
             if (skeletons.Count == 0)
             {
-                if (_wldFilesToInject == null)
+                if (WldFilesToInject == null)
                 {
                     return;
                 }
                 
-                foreach (var wldFile in _wldFilesToInject)
+                foreach (var wldFile in WldFilesToInject)
                 {
                     skeletons.AddRange(wldFile.GetFragmentsOfType<SkeletonHierarchy>());
                 }
             }
-            
+
             if (skeletons.Count == 0)
             {
                 return;
@@ -216,7 +216,7 @@ namespace LanternExtractor.EQ.Wld
                         string basename = cleanedName;
 
                         bool endsWithNumber = char.IsDigit(cleanedName[cleanedName.Length - 1]);
-                    
+
                         if (endsWithNumber)
                         {
                             int id = Convert.ToInt32(cleanedName.Substring(cleanedName.Length - 2));
@@ -230,7 +230,7 @@ namespace LanternExtractor.EQ.Wld
 
                             basename = cleanedName;
                         }
-                    
+
                         if (basename == modelBase)
                         {
                             skeleton.AddAdditionalMesh(mesh);
@@ -246,7 +246,7 @@ namespace LanternExtractor.EQ.Wld
                     continue;
                 }
 
-                _logger.LogWarning("WldFileCharacters: Track not assigned: " + track.Name);
+                Logger.LogWarning("WldFileCharacters: Track not assigned: " + track.Name);
             }
         }
     }

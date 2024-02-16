@@ -1,4 +1,4 @@
-﻿using LanternExtractor.EQ.Pfs;
+﻿using LanternExtractor.EQ.Archive;
 using LanternExtractor.EQ.Wld.DataTypes;
 using LanternExtractor.EQ.Wld.Exporters;
 using LanternExtractor.EQ.Wld.Fragments;
@@ -10,7 +10,7 @@ namespace LanternExtractor.EQ.Wld
 {
     public class WldFileZone : WldFile
     {
-        public WldFileZone(PfsFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
+        public WldFileZone(ArchiveFile wldFile, string zoneName, WldType type, ILogger logger, Settings settings,
             WldFile wldToInject = null) : base(wldFile, zoneName, type, logger, settings, wldToInject)
         {
         }
@@ -18,6 +18,7 @@ namespace LanternExtractor.EQ.Wld
         public string BasePath { get; set; } = "";
         public string RootFolder { get; set; } = "";
         public string ShortName { get; set; } = "";
+        public ArchiveBase BaseS3DArchive { get; set; } = null;
         public WldFile WldFileToInject { get; set; } = null;
 
         public override void ExportData()
@@ -32,12 +33,12 @@ namespace LanternExtractor.EQ.Wld
             base.ProcessData();
             LinkBspReferences();
 
-            if (_wldFilesToInject != null)
+            if (WldFilesToInject != null)
             {
                 ImportVertexColors();
             }
 
-            if (_wldType == WldType.Objects)
+            if (WldType == Wld.WldType.Objects)
             {
                 FixSkeletalObjectCollision();
             }
@@ -70,7 +71,7 @@ namespace LanternExtractor.EQ.Wld
         {
             var colors = new List<VertexColors>();
             
-            _wldFilesToInject?.ForEach(w => colors.AddRange(w?.GetFragmentsOfType<VertexColors>() ?? Enumerable.Empty<VertexColors>()));
+            WldFilesToInject?.ForEach(w => colors.AddRange(w?.GetFragmentsOfType<VertexColors>() ?? Enumerable.Empty<VertexColors>()));
 
             if (colors.Count == 0)
             {

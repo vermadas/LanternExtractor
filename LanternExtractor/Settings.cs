@@ -1,27 +1,17 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime;
 using LanternExtractor.Infrastructure;
 using LanternExtractor.Infrastructure.Logger;
 
-
 namespace LanternExtractor
 {
-    public enum ModelExportFormat
-    {
-        Intermediate = 0,
-        Obj = 1,
-        GlTF = 2
-    }
-
     /// <summary>
     /// Simple class that parses settings for the extractor
     /// </summary>
     public class Settings
     {
-
         /// <summary>
         /// The logger reference for debug output
         /// </summary>
@@ -61,22 +51,12 @@ namespace LanternExtractor
         /// <summary>
         /// Sets the desired model export format
         /// </summary>
-        /// Allowing public set so it can be overidden after parsing command-line arguments
-        public ModelExportFormat ModelExportFormat { get; set; }
-
-        /// <summary>
-        /// Sets the desired model export format
-        /// </summary>
+        public ModelExportFormat ModelExportFormat { get; private set; }
+        
         public bool ExportCharactersToSingleFolder { get; private set; }
-
-        /// <summary>
-        /// Sets the desired model export format
-        /// </summary>
+        
         public bool ExportEquipmentToSingleFolder { get; private set; }
-
-        /// <summary>
-        /// Export all sound files to a single folder
-        /// </summary>
+        
         public bool ExportSoundsToSingleFolder { get; private set; }
 
         /// <summary>
@@ -99,30 +79,30 @@ namespace LanternExtractor
         /// </summary>
         public bool ExportZoneCharacterVariations { get; private set; }
 
-		/// <summary>
-		/// Exports zone glTF with light instances with intensity set to the
+        /// <summary>
+        /// Exports zone glTF with light instances with intensity set to the
         /// provided value. If set at 0, lights are not exported
-		/// </summary>
-		public float LightIntensityMultiplier { get; private set; }
+        /// </summary>
+        public float LightIntensityMultiplier { get; private set; }
         public bool ExportZoneWithLights => LightIntensityMultiplier > 0;
 
-		/// <summary>
-		/// Exports zone with objects with skeletal animations included
-		/// </summary>
-		public bool ExportZoneObjectsWithSkeletalAnimations { get; private set; }
+        /// <summary>
+        /// Exports zone with objects with skeletal animations included
+        /// </summary>
+        public bool ExportZoneObjectsWithSkeletalAnimations { get; private set; }
 
         /// <summary>
-		/// Sets the export scale of the zone when exported
-		/// </summary>
+        /// Sets the export scale of the zone when exported
+        /// </summary>
         public float ExportZoneScale { get; private set; }
 
-		/// <summary>
-		/// Export vertex colors with glTF model. Default behavior of glTF renderers
-		/// is to mix the vertex color with the base color, which will not look right.
-		/// Only turn this on if you intend to do some post-processing that
-		/// requires vertex colors being present.
-		/// </summary>
-		public bool ExportGltfVertexColors { get; private set; }
+        /// <summary>
+        /// Export vertex colors with glTF model. Default behavior of glTF renderers
+        /// is to mix the vertex color with the base color, which will not look right.
+        /// Only turn this on if you intend to do some post-processing that
+        /// requires vertex colors being present.
+        /// </summary>
+        public bool ExportGltfVertexColors { get; private set; }
 
         /// <summary>
         /// Exports glTF models in .GLB file format. GLB packages the .glTF json, the
@@ -132,10 +112,10 @@ namespace LanternExtractor
         /// </summary>
         public bool ExportGltfInGlbFormat { get; private set; }
 
-		/// <summary>
-		/// Generate duplicate sets of vertices for triangles sharing vertices with another
-		/// </summary>
-		public bool SeparateTwoFacedTriangles { get; private set; }
+        /// <summary>
+        /// Generate duplicate sets of vertices for triangles sharing vertices with another
+        /// </summary>
+        public bool SeparateTwoFacedTriangles { get; private set; }
 
         /// <summary>
         /// Additional files that should be copied when extracting with `all` or `clientdata`
@@ -151,6 +131,11 @@ namespace LanternExtractor
         /// Path to the server database
         /// </summary>
         public string ServerDbPath { get; private set; }
+        
+        /// <summary>
+        /// If enabled, XMI files will be copied to the 'Exports/Music' folder
+        /// </summary>
+        public bool CopyMusic { get; private set; }
 
         /// <summary>
         /// The verbosity of the logger
@@ -198,134 +183,137 @@ namespace LanternExtractor
                 return;
             }
 
-            if (parsedSettings.ContainsKey("EverQuestDirectory"))
+            if (parsedSettings.TryGetValue("EverQuestDirectory", out var setting))
             {
-                EverQuestDirectory = parsedSettings["EverQuestDirectory"];
+                EverQuestDirectory = setting;
 
                 // Ensure the path ends with a /
                 EverQuestDirectory = Path.GetFullPath(EverQuestDirectory + "/");
             }
 
-            if (parsedSettings.ContainsKey("RawS3DExtract"))
+            if (parsedSettings.TryGetValue("RawS3DExtract", out var parsedSetting))
             {
-                RawS3dExtract = Convert.ToBoolean(parsedSettings["RawS3DExtract"]);
+                RawS3dExtract = Convert.ToBoolean(parsedSetting);
             }
 
-            if (parsedSettings.ContainsKey("ExportZoneMeshGroups"))
+            if (parsedSettings.TryGetValue("ExportZoneMeshGroups", out var setting1))
             {
-                ExportZoneMeshGroups = Convert.ToBoolean(parsedSettings["ExportZoneMeshGroups"]);
+                ExportZoneMeshGroups = Convert.ToBoolean(setting1);
             }
 
-            if (parsedSettings.ContainsKey("ExportZoneRegions"))
+            if (parsedSettings.TryGetValue("ExportZoneRegions", out var setting))
             {
-                ExportZoneRegions = Convert.ToBoolean(parsedSettings["ExportZoneRegions"]);
+                ExportZoneMeshGroups = Convert.ToBoolean(setting);
             }
 
-            if (parsedSettings.ContainsKey("ExportHiddenGeometry"))
+            if (parsedSettings.TryGetValue("ExportHiddenGeometry", out var parsedSetting1))
             {
-                ExportHiddenGeometry = Convert.ToBoolean(parsedSettings["ExportHiddenGeometry"]);
+                ExportHiddenGeometry = Convert.ToBoolean(parsedSetting1);
             }
 
-            if (parsedSettings.ContainsKey("ExportZoneWithObjects"))
+            if (parsedSettings.TryGetValue("ExportZoneWithObjects", out var setting2))
             {
-                ExportZoneWithObjects = Convert.ToBoolean(parsedSettings["ExportZoneWithObjects"]);
+                ExportZoneWithObjects = Convert.ToBoolean(setting2);
             }
 
-            if (parsedSettings.ContainsKey("ExportZoneWithDoors"))
+            if (parsedSettings.TryGetValue("ExportZoneWithDoors", out var setting))
             {
-                ExportZoneWithDoors = Convert.ToBoolean(parsedSettings["ExportZoneWithDoors"]);
+                ExportZoneWithDoors = Convert.ToBoolean(setting);
             }
 
-			if (parsedSettings.ContainsKey("ExportZoneCharacterVariations"))
-			{
-				ExportZoneCharacterVariations = Convert.ToBoolean(parsedSettings["ExportZoneCharacterVariations"]);
-			}
-
-			if (parsedSettings.ContainsKey("LightIntensityMultiplier"))
-			{
-				LightIntensityMultiplier = Convert.ToSingle(parsedSettings["LightIntensityMultiplier"]);
-			}
-
-			if (parsedSettings.ContainsKey("ExportZoneObjectsWithSkeletalAnimations"))
-			{
-				ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(parsedSettings["ExportZoneObjectsWithSkeletalAnimations"]);
-			}
-
-            if (parsedSettings.ContainsKey("ExportZoneScale"))
+            if (parsedSettings.TryGetValue("ExportZoneCharacterVariations", out var setting))
             {
-                ExportZoneScale = Convert.ToSingle(parsedSettings["ExportZoneScale"]);
+                ExportZoneCharacterVariations = Convert.ToBoolean(setting);
             }
 
-			if (parsedSettings.ContainsKey("ModelExportFormat"))
+            if (parsedSettings.TryGetValue("LightIntensityMultiplier", out var setting))
             {
-                var exportFormatSetting = (ModelExportFormat)Convert.ToInt32(parsedSettings["ModelExportFormat"]);
+                LightIntensityMultiplier = Convert.ToSingle(setting);
+            }
+
+            if (parsedSettings.TryGetValue("ExportZoneObjectsWithSkeletalAnimations", out var setting))
+            {
+                ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(setting);
+            }
+
+            if (parsedSettings.TryGetValue("ExportZoneScale", out var setting))
+            {
+                ExportZoneScale = Convert.ToSingle(setting);
+            }
+            if (parsedSettings.TryGetValue("ModelExportFormat", out var parsedSetting2))
+            {
+                var exportFormatSetting = (ModelExportFormat)Convert.ToInt32(parsedSetting2);
                 ModelExportFormat = exportFormatSetting;
             }
 
-            if (parsedSettings.ContainsKey("ExportCharacterToSingleFolder"))
+            if (parsedSettings.TryGetValue("ExportCharacterToSingleFolder", out var setting3))
             {
-                ExportCharactersToSingleFolder = Convert.ToBoolean(parsedSettings["ExportCharacterToSingleFolder"]);
+                ExportCharactersToSingleFolder = Convert.ToBoolean(setting3);
             }
 
-            if (parsedSettings.ContainsKey("ExportEquipmentToSingleFolder"))
+            if (parsedSettings.TryGetValue("ExportEquipmentToSingleFolder", out var parsedSetting3))
             {
-                ExportEquipmentToSingleFolder = Convert.ToBoolean(parsedSettings["ExportEquipmentToSingleFolder"]);
+                ExportEquipmentToSingleFolder = Convert.ToBoolean(parsedSetting3);
+            }
+            
+            if (parsedSettings.TryGetValue("ExportSoundsToSingleFolder", out var setting4))
+            {
+                ExportSoundsToSingleFolder = Convert.ToBoolean(setting4);
             }
 
-            if (parsedSettings.ContainsKey("ExportSoundsToSingleFolder"))
+            if (parsedSettings.TryGetValue("ExportAllAnimationFrames", out var parsedSetting4))
             {
-                ExportSoundsToSingleFolder = Convert.ToBoolean(parsedSettings["ExportSoundsToSingleFolder"]);
+                ExportAllAnimationFrames = Convert.ToBoolean(parsedSetting4);
             }
 
-            if (parsedSettings.ContainsKey("ExportAllAnimationFrames"))
+            if (parsedSettings.TryGetValue("ExportGltfVertexColors", out var setting5))
             {
-                ExportAllAnimationFrames = Convert.ToBoolean(parsedSettings["ExportAllAnimationFrames"]);
+                ExportGltfVertexColors = Convert.ToBoolean(setting5);
             }
 
-            if (parsedSettings.ContainsKey("ExportGltfVertexColors"))
-            {
-                ExportGltfVertexColors = Convert.ToBoolean(parsedSettings["ExportGltfVertexColors"]);
-            }
-
-            if (parsedSettings.ContainsKey("ExportGltfInGlbFormat"))
+            if (parsedSettings.TryGetValue("ExportGltfInGlbFormat", out var parsedSetting5))
             {
                 ExportGltfInGlbFormat = Convert.ToBoolean(parsedSettings["ExportGltfInGlbFormat"]);
             }
 
-			if (parsedSettings.ContainsKey("SeparateTwoFacedTriangles"))
-			{
-				SeparateTwoFacedTriangles = Convert.ToBoolean(parsedSettings["SeparateTwoFacedTriangles"]);
-			}
-
-			if (parsedSettings.ContainsKey("ExportedAnimationTypes"))
+            if (parsedSettings.TryGetValue("SeparateTwoFacedTriangles", out var setting))
             {
-                var animationIncludeString = parsedSettings["ExportedAnimationTypes"].Trim();
-				ExportedAnimationTypes = animationIncludeString
+                SeparateTwoFacedTriangles = Convert.ToBoolean(setting);
+            }
+
+            if (parsedSettings.TryGetValue("ExportedAnimationTypes", out var setting))
+            {
+                ExportedAnimationTypes = setting.Trim()
                     .Split(',').Select(a => a.Trim().ToLower())
                     .Where(a => a.Length == 1).ToList();
             }
-			
-            if (parsedSettings.ContainsKey("ClientDataToCopy"))
+            
+            if (parsedSettings.TryGetValue("ClientDataToCopy", out var setting6))
             {
-                ClientDataToCopy = parsedSettings["ClientDataToCopy"];
+                ClientDataToCopy = setting6;
+            }
+            
+            if (parsedSettings.TryGetValue("ClientDataToCopy", out var parsedSetting6))
+            {
+                ClientDataToCopy = parsedSetting6;
+            }
+            
+            if (parsedSettings.TryGetValue("CopyMusic", out var setting7))
+            {
+                CopyMusic = Convert.ToBoolean(setting7);
             }
 
-            if (parsedSettings.ContainsKey("ServerDatabasePath"))
+            if (parsedSettings.TryGetValue("LoggerVerbosity", out var parsedSetting7))
             {
-                ServerDbPath = parsedSettings["ServerDatabasePath"];
-            }
-
-            if (parsedSettings.ContainsKey("LoggerVerbosity"))
-            {
-                LoggerVerbosity = Convert.ToInt32(parsedSettings["LoggerVerbosity"]);
+                LoggerVerbosity = Convert.ToInt32(parsedSetting7);
             }
         }
 
         public bool UsingCombinedGlobalChr()
-		{
+        {
             return ModelExportFormat != ModelExportFormat.Intermediate &&
-				(ExportAllAnimationFrames || ExportZoneCharacterVariations)
+                (ExportAllAnimationFrames || ExportZoneCharacterVariations)
                 && !RawS3dExtract;
-		}
+        }
     }
 }

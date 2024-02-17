@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,7 +35,7 @@ namespace LanternExtractor.EQ
                         ? "characters/Textures/"
                         : ShortnameHelper.GetCorrectZoneShortname("global") + "/Characters/Textures/");
                         
-                    InitializeWldAndWriteTextures(globalChrWld, rootFolder, exportPath, GlobalReference.CharacterWld.S3dArchiveReference, settings, logger);
+                    InitializeWldAndWriteTextures(globalChrWld, rootFolder, exportPath, GlobalReference.CharacterWld.BaseS3DArchive, settings, logger);
 
                     return;
                 }
@@ -160,7 +161,7 @@ namespace LanternExtractor.EQ
 			var actorName = pcEquipment.RaceGender;
 			var includeList = GlobalReference.CharacterWld.GetActorImageNames(actorName).ToList();
 			var exportFolder = Path.Combine(rootFolder, pcExportFolder, "Textures");
-			WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList, true);
+			WriteWldTextures(GlobalReference.CharacterWld.BaseS3DArchive, GlobalReference.CharacterWld, exportFolder, logger, includeList, true);
 			includeList.Clear();
 			if (!string.IsNullOrEmpty(pcEquipment.Primary_ID) || !string.IsNullOrEmpty(pcEquipment.Secondary_ID) || pcEquipment.Head.Velious)
 			{
@@ -177,7 +178,7 @@ namespace LanternExtractor.EQ
 				{
 					includeList.AddRange(mainWldEqFile.GetActorImageNames(PlayerCharacterModel.RaceGenderToVeliousHelmModel[pcEquipment.RaceGender]));
 				}
-				WriteWldTextures(mainWldEqFile, exportFolder, logger, includeList, true);
+				WriteWldTextures(mainWldEqFile.BaseS3DArchive, mainWldEqFile, exportFolder, logger, includeList, true);
 			}
 		}
 
@@ -191,7 +192,8 @@ namespace LanternExtractor.EQ
             {
 				globalCharacterActors.ToList()
 					.ForEach(a => includeList.AddRange(GlobalReference.CharacterWld.GetActorImageNames(a)));
-				WriteWldTextures(GlobalReference.CharacterWld, exportFolder, logger, includeList.Distinct().ToList(), true);
+				WriteWldTextures(GlobalReference.CharacterWld.BaseS3DArchive, GlobalReference.CharacterWld,
+                    exportFolder, logger, includeList.Distinct().ToList(), true);
                 includeList.Clear();
 			}
 
@@ -199,7 +201,7 @@ namespace LanternExtractor.EQ
             {
 				wldEqFile = InitCombinedEquipmentWld(logger, settings, zoneName, rootFolder);
                 heldEquipmentIds.ToList().ForEach(e => includeList.AddRange(wldEqFile.GetActorImageNames(e)));
-				WriteWldTextures(wldEqFile, exportFolder, logger, includeList.Distinct().ToList(), true);
+				WriteWldTextures(wldEqFile.BaseS3DArchive, wldEqFile, exportFolder, logger, includeList.Distinct().ToList(), true);
 			}
 
             return wldEqFile;
@@ -387,7 +389,7 @@ namespace LanternExtractor.EQ
         private static void InitializeWldAndWriteTextures(WldFile wldFile, string rootFolder, string texturePath,
             ArchiveBase archive, Settings settings, ILogger logger)
         {
-            wldFile.S3dArchiveReference = s3dArchive;
+            wldFile.BaseS3DArchive = archive;
             if (settings.ModelExportFormat != ModelExportFormat.GlTF)
             {
                 wldFile.Initialize(rootFolder);
@@ -458,7 +460,7 @@ namespace LanternExtractor.EQ
             }
             foreach (var bitmap in allBitmaps)
             {
-                PfsFile pfsFile = null;
+                ArchiveFile pfsFile = null;
                 foreach (var archiveElement in archives)
                 {
                     string filename = bitmap;

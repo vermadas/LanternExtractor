@@ -68,13 +68,13 @@ namespace LanternExtractor.EQ.Wld
                     continue;
                 }
 
-                _animationSources[line[0].ToLower()] = line[1].ToLower();
+                AnimationSources[line[0].ToLower()] = line[1].ToLower();
             }
         }
 
         private string GetAnimationModelLink(string modelName)
         {
-            return !_animationSources.ContainsKey(modelName) ? modelName : _animationSources[modelName];
+            return !AnimationSources.ContainsKey(modelName) ? modelName : AnimationSources[modelName];
         }
 
         protected override void ProcessData()
@@ -175,13 +175,13 @@ namespace LanternExtractor.EQ.Wld
 
             var allTracks = GetFragmentsOfType<TrackFragment>();
 
-            _wldFilesToInject?.ForEach(w =>
+            WldFilesToInject?.ForEach(w =>
                 allTracks.AddRange(w?.GetFragmentsOfType<TrackFragment>() 
                 ?? Enumerable.Empty<TrackFragment>()));
 
             allTracks.Where(t => !t.IsPoseAnimation && !t.IsNameParsed)
                 .ToList()
-                .ForEach(t => t.ParseTrackData(_logger));
+                .ForEach(t => t.ParseTrackData(Logger));
 
             foreach (var skeletonFragment in skeletons)
             {

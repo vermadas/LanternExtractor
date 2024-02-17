@@ -23,7 +23,7 @@ namespace LanternExtractor.EQ.Wld
         /// The type of WLD file this is
         /// </summary>
         public WldType WldType { get; }
-
+        public ArchiveBase BaseS3DArchive { get; set; } = null;
         /// <summary>
         /// A link of indices to fragments
         /// </summary>
@@ -56,6 +56,7 @@ namespace LanternExtractor.EQ.Wld
         /// The logger to use to output WLD information
         /// </summary>
         protected readonly ILogger Logger;
+
 
         /// <summary>
         /// The WLD file found in the archive
@@ -230,7 +231,7 @@ namespace LanternExtractor.EQ.Wld
                 return new List<T>();
             }
 
-            return _fragmentTypeDictionary[typeof(T)].Cast<T>().ToList();
+            return FragmentTypeDictionary[typeof(T)].Cast<T>().ToList();
         }
 
         public List<T> GetFragmentsOfTypeIncludingInjectedWlds<T>() where T : WldFragment
@@ -481,8 +482,8 @@ namespace LanternExtractor.EQ.Wld
                 case Wld.WldType.Characters when (Settings.ExportCharactersToSingleFolder &&
                                                   Settings.ModelExportFormat == ModelExportFormat.Intermediate):
                     return RootExportFolder + "characters/";
-                case WldType.Equipment when _settings.ModelExportFormat == ModelExportFormat.GlTF:
-                    return RootExportFolder + _zoneName + "/";
+                case WldType.Equipment when Settings.ModelExportFormat == ModelExportFormat.GlTF:
+                    return RootExportFolder + ZoneName + "/";
                 default:
                     return RootExportFolder + ShortnameHelper.GetCorrectZoneShortname(ZoneName) + "/";
             }
@@ -628,9 +629,9 @@ namespace LanternExtractor.EQ.Wld
             return bitmaps;
         }
 
-        public List<PfsArchive> GetInjectedWldsAssociatedS3dArchives()
+        public List<ArchiveBase> GetInjectedWldsAssociatedS3dArchives()
         {
-            return WldFilesToInject?.Select(w => w.S3dArchiveReference).ToList() ?? Enumerable.Empty<PfsArchive>().ToList();
+            return WldFilesToInject?.Select(w => w.BaseS3DArchive).ToList() ?? Enumerable.Empty<ArchiveBase>().ToList();
         }
 
         private void BuildSkeletonData()

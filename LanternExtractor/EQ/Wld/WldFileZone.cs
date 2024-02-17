@@ -18,7 +18,6 @@ namespace LanternExtractor.EQ.Wld
         public string BasePath { get; set; } = "";
         public string RootFolder { get; set; } = "";
         public string ShortName { get; set; } = "";
-        public ArchiveBase BaseS3DArchive { get; set; } = null;
         public WldFile WldFileToInject { get; set; } = null;
 
         public override void ExportData()

@@ -56,7 +56,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             if (settings.ExportZoneWithObjects)
             {
                 var path = wldFile.BasePath;
-                var s3dArchive = wldFile.S3dArchiveReference;
+                var s3dArchive = wldFile.BaseS3DArchive;
                 var wldFileToInject = wldFile.WldFileToInject;
                 var rootFolder = wldFile.RootFolder;
                 var shortName = wldFile.ShortName;
@@ -81,8 +81,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var objWldFile = new WldFileZone(s3dObjArchive.GetFile(wldFileName), shortName, WldType.Objects, logger, settings);
                     objWldFile.Initialize(rootFolder, false);
                     s3dObjArchive.FilenameChanges = objWldFile.FilenameChanges;
-                    objWldFile.S3dArchiveReference = s3dObjArchive;
-                    ArchiveExtractor.WriteWldTextures(objWldFile, rootFolder + shortName + "/Zone/Textures/", logger);
+                    objWldFile.BaseS3DArchive = s3dObjArchive;
+                    ArchiveExtractor.WriteWldTextures(s3dObjArchive, objWldFile, rootFolder + shortName + "/Zone/Textures/", logger);
                     meshes.AddRange(objWldFile.GetFragmentsOfType<Mesh>());
                     materialLists.AddRange(objWldFile.GetFragmentsOfType<MaterialList>());
                 }

@@ -102,7 +102,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 // Get object instances within this zone file to map up and instantiate later
                 var zoneObjectsFileInArchive =
-                    wldFileZone.S3dArchiveReference.GetFile("objects" + LanternStrings.WldFormatExtension);
+                    wldFileZone.BaseS3DArchive.GetFile("objects" + LanternStrings.WldFormatExtension);
                 if (zoneObjectsFileInArchive == null)
                 {
                     logger.LogError($"Cannot find S3dArchive for Zone {shortName} objects!");
@@ -124,8 +124,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                         logger, settings);
                     objWldFile.Initialize(rootFolder, false);
                     s3dObjArchive.FilenameChanges = objWldFile.FilenameChanges;
-                    objWldFile.S3dArchiveReference = s3dObjArchive;
-                    ArchiveExtractor.WriteWldTextures(objWldFile, rootFolder + shortName + "/Zone/Textures/", logger);
+                    objWldFile.BaseS3DArchive = s3dObjArchive;
+                    ArchiveExtractor.WriteWldTextures(s3dObjArchive, objWldFile, rootFolder + shortName + "/Zone/Textures/", logger);
                     actors.AddRange(objWldFile.GetFragmentsOfType<Actor>());
                     materialLists.AddRange(objWldFile.GetFragmentsOfType<MaterialList>());
                 }
@@ -157,7 +157,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     lightInstances.AddRange(lightsWldFile.GetFragmentsOfType<LightInstance>());
                 }
 
-                var lightsFileInArchive = wldFileZone.S3dArchiveReference.GetFile("lights" + LanternStrings.WldFormatExtension);
+                var lightsFileInArchive = wldFileZone.BaseS3DArchive.GetFile("lights" + LanternStrings.WldFormatExtension);
 
                 if (lightsFileInArchive != null)
                 {

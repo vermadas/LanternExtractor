@@ -1,4 +1,4 @@
-﻿using LanternExtractor.EQ.Pfs;
+﻿using LanternExtractor.EQ.Archive;
 using LanternExtractor.EQ.Wld;
 using LanternExtractor.Infrastructure;
 using LanternExtractor.Infrastructure.Logger;
@@ -15,13 +15,13 @@ namespace LanternExtractor.EQ
         public static SqliteDatabaseConnector ServerDatabaseConnector { get; private set; }
         public static NpcDatabaseToClientTranslator NpcDatabaseToClientTranslator { get; private set; }
 
-        public static void InitCharacterWld(PfsArchive pfsArchive, PfsFile wldFile, string rootFolder, string zoneName, 
+        public static void InitCharacterWld(ArchiveBase pfsArchive, ArchiveFile wldFile, string rootFolder, string zoneName, 
             WldType type, ILogger logger, Settings settings, List<WldFile> wldFilesToInject = null)
         {
             CharacterWld = new WldFileCharacters(wldFile, zoneName, type, logger, settings, wldFilesToInject);
             CharacterWld.Initialize(rootFolder, false);
             pfsArchive.FilenameChanges = CharacterWld.FilenameChanges;
-            CharacterWld.S3dArchiveReference = pfsArchive;
+            CharacterWld.BaseS3DArchive = pfsArchive;
         }
 
         public static void InitServerDatabaseConnector(Settings settings)

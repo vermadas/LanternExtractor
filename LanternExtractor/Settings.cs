@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime;
@@ -51,7 +52,7 @@ namespace LanternExtractor
         /// <summary>
         /// Sets the desired model export format
         /// </summary>
-        public ModelExportFormat ModelExportFormat { get; private set; }
+        public ModelExportFormat ModelExportFormat { get; set; }
         
         public bool ExportCharactersToSingleFolder { get; private set; }
         
@@ -201,9 +202,9 @@ namespace LanternExtractor
                 ExportZoneMeshGroups = Convert.ToBoolean(setting1);
             }
 
-            if (parsedSettings.TryGetValue("ExportZoneRegions", out var setting))
+            if (parsedSettings.TryGetValue("ExportZoneRegions", out setting))
             {
-                ExportZoneMeshGroups = Convert.ToBoolean(setting);
+                ExportZoneRegions = Convert.ToBoolean(setting);
             }
 
             if (parsedSettings.TryGetValue("ExportHiddenGeometry", out var parsedSetting1))
@@ -216,27 +217,27 @@ namespace LanternExtractor
                 ExportZoneWithObjects = Convert.ToBoolean(setting2);
             }
 
-            if (parsedSettings.TryGetValue("ExportZoneWithDoors", out var setting))
+            if (parsedSettings.TryGetValue("ExportZoneWithDoors", out setting))
             {
                 ExportZoneWithDoors = Convert.ToBoolean(setting);
             }
 
-            if (parsedSettings.TryGetValue("ExportZoneCharacterVariations", out var setting))
+            if (parsedSettings.TryGetValue("ExportZoneCharacterVariations", out setting))
             {
                 ExportZoneCharacterVariations = Convert.ToBoolean(setting);
             }
 
-            if (parsedSettings.TryGetValue("LightIntensityMultiplier", out var setting))
+            if (parsedSettings.TryGetValue("LightIntensityMultiplier", out setting))
             {
                 LightIntensityMultiplier = Convert.ToSingle(setting);
             }
 
-            if (parsedSettings.TryGetValue("ExportZoneObjectsWithSkeletalAnimations", out var setting))
+            if (parsedSettings.TryGetValue("ExportZoneObjectsWithSkeletalAnimations", out setting))
             {
                 ExportZoneObjectsWithSkeletalAnimations = Convert.ToBoolean(setting);
             }
 
-            if (parsedSettings.TryGetValue("ExportZoneScale", out var setting))
+            if (parsedSettings.TryGetValue("ExportZoneScale", out setting))
             {
                 ExportZoneScale = Convert.ToSingle(setting);
             }
@@ -276,12 +277,12 @@ namespace LanternExtractor
                 ExportGltfInGlbFormat = Convert.ToBoolean(parsedSettings["ExportGltfInGlbFormat"]);
             }
 
-            if (parsedSettings.TryGetValue("SeparateTwoFacedTriangles", out var setting))
+            if (parsedSettings.TryGetValue("SeparateTwoFacedTriangles", out setting))
             {
                 SeparateTwoFacedTriangles = Convert.ToBoolean(setting);
             }
 
-            if (parsedSettings.TryGetValue("ExportedAnimationTypes", out var setting))
+            if (parsedSettings.TryGetValue("ExportedAnimationTypes", out setting))
             {
                 ExportedAnimationTypes = setting.Trim()
                     .Split(',').Select(a => a.Trim().ToLower())
@@ -293,9 +294,9 @@ namespace LanternExtractor
                 ClientDataToCopy = setting6;
             }
             
-            if (parsedSettings.TryGetValue("ClientDataToCopy", out var parsedSetting6))
+            if (parsedSettings.TryGetValue("ServerDatabasePath", out setting))
             {
-                ClientDataToCopy = parsedSetting6;
+                ServerDbPath = setting;
             }
             
             if (parsedSettings.TryGetValue("CopyMusic", out var setting7))

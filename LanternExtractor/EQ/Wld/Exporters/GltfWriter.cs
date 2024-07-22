@@ -320,7 +320,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 regionMetadata.Add("zoneLine", frag.Region.RegionType.Zoneline);
             }
-            meshBuilder.Extras = SharpGLTF.IO.JsonContent.Parse(JsonSerializer.Serialize(regionMetadata));
+            meshBuilder.Extras = JsonNode.Parse(JsonSerializer.Serialize(regionMetadata));
             _scene.AddRigidMesh(meshBuilder, new AffineTransform(Matrix4x4.Identity));
         }
 
@@ -641,11 +641,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             foreach (var node in model.LogicalNodes)
             {
-                if (node.Mesh != null && (node.Mesh.Extras.Content?.ToString() ?? string.Empty) != string.Empty)
+                if (node.Mesh?.Extras != null)
                 {
                     node.Extras = node.Mesh.Extras;
-                    JsonNode regionTypes = JsonSerializer.Deserialize<JsonNode>(node.Extras.ToJson())["regions"];
-                    var reg = regionTypes.AsArray().Select(a => a.GetValue<int>().ToString());
+                    var reg = node.Extras["regions"].AsArray().Select(a => a.GetValue<int>().ToString());
                     node.Name = $"region_{string.Join("-", reg)}";
                 }
             }

@@ -832,7 +832,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             var gltfMaterial = new MaterialBuilder(materialName)
-                .WithDoubleSide(false /* eqMaterial.IsTwoSided */)
+                .WithDoubleSide(eqMaterial.IsTwoSided)
                 .WithMetallicRoughnessShader()
                 .WithChannelParam(KnownChannel.MetallicRoughness, KnownProperty.RoughnessFactor, MaterialRoughness)
                 .WithChannelParam(KnownChannel.MetallicRoughness, KnownProperty.MetallicFactor, 0f)

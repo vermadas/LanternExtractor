@@ -210,7 +210,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private readonly float ZoneScaleMultiplier;
         private readonly Matrix4x4 CorrectedWorldMatrix;
         public static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
-        private static readonly Matrix4x4 CorrectedSingularActorMatrix = Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
         #endregion
 
         private SceneBuilder _scene;
@@ -378,7 +377,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var gltfVertexPositionToWldVertexIndex = new Dictionary<VertexPositionNormal, int>();
 
             var polygonIndex = 0;
-            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, isZoneMesh);
+            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, isZoneMesh, !isZoneMesh);
             foreach (var materialGroup in mesh.MaterialGroups)
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
@@ -596,7 +595,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
             else
             {
-                worldTransformMatrix *= CorrectedSingularActorMatrix;
+                // worldTransformMatrix *= CorrectedSingularActorMatrix;
             }
 
             if (skeletonName == null || !_skeletons.TryGetValue(skeletonName, out var skeletonNodes))
@@ -969,14 +968,14 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             // Always use clockwise rotation to offset the mirrored x axis
             // If we're embedding in a zone or applying to a skinned model
-            if (objectInstance != null || isSkinned || isZoneMesh)
-            {
+//            if (objectInstance != null || isSkinned || isZoneMesh)
+//            {
                 primitive.AddTriangle(vertex2, vertex1, vertex0);
-            }
-            else
-            {
-                primitive.AddTriangle(vertex0, vertex1, vertex2);
-            }
+//            }
+//            else
+//            {
+//                primitive.AddTriangle(vertex0, vertex1, vertex2);
+//            }
 
 
             var gltfVpToWldVi = new Dictionary<VertexPositionNormal, int>();
@@ -1186,7 +1185,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private readonly Matrix4x4 _transformMatrix;
         private static readonly Vector4 DefaultVertexColor = new Vector4(0f, 0f, 0f, 1f); // Black
 
-        public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles, bool mirrorXAxis = true)
+        public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles, bool mirrorXAxis = true, bool mirrorZAxis = false)
         {
             _wldMesh = wldMesh;
             _separateTwoFacedTriangles = separateTwoFacedTriangles;
@@ -1194,6 +1193,10 @@ namespace LanternExtractor.EQ.Wld.Exporters
             _uniqueTriangles = new HashSet<DataTypes.Polygon>(_triangleSetComparer);
             _wldVertexIndexToDuplicatedVertexNormals = new Dictionary<int, Vector3>();
             _transformMatrix = mirrorXAxis ? Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0)) : Matrix4x4.Identity;
+            if (mirrorZAxis)
+            {
+                _transformMatrix *= Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
+            }
         }
 
         public DataTypes.Polygon GetTriangle(int triangleIndex)

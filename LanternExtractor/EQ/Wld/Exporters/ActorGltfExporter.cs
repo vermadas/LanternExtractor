@@ -204,7 +204,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     var instanceIndex = 0;
                     foreach (var instance in instances)
                     {
-                        if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
+                        if (instance.Transform.Translation.Y < ObjInstanceYAxisThreshold) continue;
 
                         gltfWriter.AddFragmentData(
                             mesh: objMesh,
@@ -227,7 +227,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                     foreach (var instance in instances)
                     {
-                        if (instance.Position.Y < ObjInstanceYAxisThreshold) continue;
+                        if (instance.Transform.Translation.Y < ObjInstanceYAxisThreshold) continue;
 
                         if (!addedMeshOnce ||
                             (settings.ExportGltfVertexColors

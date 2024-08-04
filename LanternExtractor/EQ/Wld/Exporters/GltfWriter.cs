@@ -209,7 +209,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
         };
         private readonly float ZoneScaleMultiplier;
         private readonly Matrix4x4 CorrectedWorldMatrix;
-        public static readonly Matrix4x4 MirrorXAxisMatrix = Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0));
         #endregion
 
         private SceneBuilder _scene;
@@ -296,7 +295,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             var meshBuilder = new MeshBuilder<VertexPositionNormal>(mesh.Name);
             var materialBuilder = new MaterialBuilder("");
-            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles);
+            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, VT.SwapYandZ, VT.NegateX);
             var polygonCount = mesh.MaterialGroups.Sum(material => material.PolygonCount);
 
             for (var i = 0; i < polygonCount; i++)
@@ -304,11 +303,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 var triangle = meshHelper.GetTriangle(i);
                 var vertexPositions = meshHelper.GetVertexPositions(triangle);
                 var prim = meshBuilder.UsePrimitive(materialBuilder);
-
+ 
                 prim.AddTriangle(
-                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v2, Matrix4x4.CreateScale(ZoneScaleMultiplier)))),
-                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v1, Matrix4x4.CreateScale(ZoneScaleMultiplier)))),
-                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(Vector3.Transform(vertexPositions.v0, Matrix4x4.CreateScale(ZoneScaleMultiplier))))
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(VectorTransformer.Scale(vertexPositions.v2, ZoneScaleMultiplier))),
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(VectorTransformer.Scale(vertexPositions.v1, ZoneScaleMultiplier))),
+                    new VertexBuilder<VertexPosition, VertexEmpty, VertexEmpty>(new VertexPosition(VectorTransformer.Scale(vertexPositions.v0, ZoneScaleMultiplier)))
                     );
             }
 
@@ -336,7 +335,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             ICharacterModel characterModel = null)
         {
             var meshName = meshNameOverride ?? FragmentNameCleaner.CleanName(mesh);
-            var transformMatrix = objectInstance == null ? Matrix4x4.Identity : CreateTransformMatrixForObjectInstance(objectInstance);
+            var transformMatrix = objectInstance == null ? Matrix4x4.Identity : objectInstance.Transform;
             transformMatrix = transformMatrix *= isZoneMesh ? CorrectedWorldMatrix : Matrix4x4.Identity;
 
             var canExportVertexColors = _exportVertexColors &&
@@ -377,7 +376,12 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var gltfVertexPositionToWldVertexIndex = new Dictionary<VertexPositionNormal, int>();
 
             var polygonIndex = 0;
-            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, isZoneMesh, !isZoneMesh);
+            var vectorTranslators = new VectorTransformer.VectorTranslator<Vector3>[2] { VT.SwapYandZ, VT.NegateZ };
+            if (isZoneMesh)
+            {
+                vectorTranslators[1] = VT.NegateX;
+            }
+            var meshHelper = new WldMeshHelper(mesh, _separateTwoFacedTriangles, vectorTranslators);
             foreach (var materialGroup in mesh.MaterialGroups)
             {
                 var material = mesh.MaterialList.Materials[materialGroup.MaterialIndex];
@@ -387,7 +391,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                     if (characterModel.TryGetMaterialVariation(material.GetFirstBitmapNameWithoutExtension(), out var variationIndex, out var color))
                     {
                         var alternateSkins = mesh.MaterialList.GetMaterialVariants(material, _logger);
-                        if (alternateSkins.Any() && alternateSkins.Count() > variationIndex && alternateSkins.ElementAt(variationIndex) != null)
+                        if (alternateSkins.Any() && alternateSkins.Count > variationIndex && alternateSkins.ElementAt(variationIndex) != null)
                         {
                             material = alternateSkins[variationIndex];
                         }
@@ -409,7 +413,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
                 if (baseColor != null)
                 {
-                    gltfMaterial = gltfMaterial.WithBaseColor(baseColor.Value.ToVector4().DecodeRgbToLinear());
+                    gltfMaterial = gltfMaterial.WithBaseColor(VectorTransformer.DecodeRgbToLinear(VectorTransformer.TranslateColor(baseColor.Value)));
                 }
 
                 var primitive = gltfMesh.UsePrimitive(gltfMaterial);
@@ -551,8 +555,8 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 };
                 foreach (var lightInstance in uniqueLightGroups)
                 {
-                    var position = lightInstance.Position.ToVector3(swapYandZ: true);
-                    var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix * MirrorXAxisMatrix;
+                    var position = VectorTransformer.TranslateVector(lightInstance.Position, VT.SwapYandZ, VT.NegateX);
+                    var translationMatrix = Matrix4x4.CreateTranslation(position) * CorrectedWorldMatrix;
                     Matrix4x4.Decompose(translationMatrix, out _, out _, out var translation);
                     var lightName = lightInstance.LightReference?.LightSource?.Name;
                     var node = new NodeBuilder(lightName != null ? lightName.Split('_')[0] : "");
@@ -586,16 +590,12 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var worldTransformMatrix = Matrix4x4.Identity;
             if (objectInstance != null && skeletonName == null)
             {
-                worldTransformMatrix *= CreateTransformMatrixForObjectInstance(objectInstance);
+                worldTransformMatrix *= objectInstance.Transform;
                 worldTransformMatrix *= CorrectedWorldMatrix;
             }
             else if (isZoneMesh)
             {
                 worldTransformMatrix *= CorrectedWorldMatrix;
-            }
-            else
-            {
-                // worldTransformMatrix *= CorrectedSingularActorMatrix;
             }
 
             if (skeletonName == null || !_skeletons.TryGetValue(skeletonName, out var skeletonNodes))
@@ -870,17 +870,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             Materials.Add(materialName, gltfMaterial);
         }
-        private Matrix4x4 CreateTransformMatrixForObjectInstance(ObjInstance instance)
-        {
-            var transformMatrix = Matrix4x4.CreateScale(instance.Scale)
-                * Matrix4x4.CreateFromYawPitchRoll(
-                    (float)(-1 * instance.Rotation.Z * Math.PI)/180f,
-                    (float)(instance.Rotation.X * Math.PI)/180f,
-                    (float)(-1 * instance.Rotation.Y * Math.PI)/180f
-                )
-                * Matrix4x4.CreateTranslation(instance.Position);
-            return transformMatrix;
-        }
 
         private string GetSkeletonName(SkeletonHierarchy skeleton, int? instanceIndex = null)
         {
@@ -893,18 +882,15 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             if (skeletonModelBase == null) return null;
 
-            if (instanceIndex != null)
-            {
-                return $"{skeletonModelBase}_{instanceIndex:000}";
-            }
+            if (instanceIndex != null) return $"{skeletonModelBase}_{instanceIndex:000}";
+ 
             return skeletonModelBase;
         }
 
         private NodeBuilder GetRootSkeletonNodeTransformsFromObjectInstance(string name, ObjInstance instance)
         {
             var rootNode = new NodeBuilder(name);
-            var instanceTransformMatrix = CreateTransformMatrixForObjectInstance(instance);
-            var zoneInstanceTransformMatrix = instanceTransformMatrix * CorrectedWorldMatrix;
+            var zoneInstanceTransformMatrix = instance.Transform * CorrectedWorldMatrix;
             Matrix4x4.Decompose(zoneInstanceTransformMatrix, out var scale, out var rotation, out var translation);
             rotation = Quaternion.Normalize(rotation);
             rootNode.WithLocalScale(scale)
@@ -966,17 +952,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var vertex1 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v1, vertexNormals.v1, vertexUvs.v1, vertexColors.v1, isSkinned, boneIndexes.v1);
             var vertex2 = GetGltfVertex<TvG, TvM, TvS>(vertexPositions.v2, vertexNormals.v2, vertexUvs.v2, vertexColors.v2, isSkinned, boneIndexes.v2);
 
-            // Always use clockwise rotation to offset the mirrored x axis
-            // If we're embedding in a zone or applying to a skinned model
-//            if (objectInstance != null || isSkinned || isZoneMesh)
-//            {
-                primitive.AddTriangle(vertex2, vertex1, vertex0);
-//            }
-//            else
-//            {
-//                primitive.AddTriangle(vertex0, vertex1, vertex2);
-//            }
-
+            primitive.AddTriangle(vertex2, vertex1, vertex0);
 
             var gltfVpToWldVi = new Dictionary<VertexPositionNormal, int>();
 
@@ -1036,7 +1012,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 {
                     var vertexIndex = gltfVertexPositionToWldVertexIndex[vertexGeometry];
                     var wldVertexPositionForFrame = vertexPositionsForFrame[vertexIndex];
-                    var newPosition = Vector3.Transform((wldVertexPositionForFrame + mesh.Center).ToVector3(true), mirrorXAxis ? MirrorXAxisMatrix : Matrix4x4.Identity);
+                    var newPosition = VectorTransformer.TranslateVector(wldVertexPositionForFrame + mesh.Center, VT.SwapYandZ);
+                    if (mirrorXAxis)
+                    {
+                        newPosition = VectorTransformer.TranslateVector(newPosition, VT.NegateX);
+                    }
                     vertexGeometry.TryGetNormal(out var originalNormal);
                     morphTarget.SetVertex(vertexGeometry, new VertexPositionNormal(newPosition, originalNormal));
                 }
@@ -1100,8 +1080,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 W = (float)(boneTransform.Rotation.w * Math.PI)/180
             };
             rotationQuaternion = Quaternion.Normalize(rotationQuaternion);
-            var translationVector = boneTransform.Translation.ToVector3(true);
-            translationVector.Z = -translationVector.Z;
+            var translationVector = VectorTransformer.TranslateVector(boneTransform.Translation, VT.SwapYandZ, VT.NegateZ);
             if (!AnimationDescriptions.TryGetValue(animationKey, out var animationDescription))
             {
                 animationDescription = animationKey;
@@ -1139,17 +1118,22 @@ namespace LanternExtractor.EQ.Wld.Exporters
     {
         public string Name { get; private set; }
         public ObjType Type { get; private set; }
-        public Vector3 Position { get; private set; }
-        public Vector3 Rotation { get; private set; }
-        public Vector3 Scale { get; private set; }
+        public Matrix4x4 Transform { get; private set; }
         public VertexColors Colors { get; private set; }
 
         public ObjInstance(ObjectInstance objectInstanceFragment)
         {
             Name = objectInstanceFragment.ObjectName;
-            Position = Vector3.Transform(objectInstanceFragment.Position.ToVector3(true), GltfWriter.MirrorXAxisMatrix);
-            Rotation = objectInstanceFragment.Rotation.ToVector3();
-            Scale = objectInstanceFragment.Scale.ToVector3();
+            var position = VectorTransformer.TranslateVector(objectInstanceFragment.Position, VT.SwapYandZ, VT.NegateX);
+            var rotation = VectorTransformer.TranslateVector(objectInstanceFragment.Rotation, VT.NegateY, VT.NegateZ);
+            var scale = VectorTransformer.TranslateVector(objectInstanceFragment.Scale);
+            Transform = Matrix4x4.CreateScale(scale)
+                * Matrix4x4.CreateFromYawPitchRoll(
+                    (float)(rotation.Z * Math.PI) / 180f,
+                    (float)(rotation.X * Math.PI) / 180f,
+                    (float)(rotation.Y * Math.PI) / 180f
+                )
+                * Matrix4x4.CreateTranslation(position);
             Colors = objectInstanceFragment.Colors;
             Type = ObjType.ZoneInstance;
         }
@@ -1157,13 +1141,13 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public ObjInstance(Door door)
         {
             Name = door.Name;
-            Position = Vector3.Transform(new Vector3(
-                door.Position.Y,
-                door.Position.Z,
-                door.Position.X
-            ), GltfWriter.MirrorXAxisMatrix);
-            Rotation = new Vector3(0f, door.Incline * 360f / 512f, -(float)(door.Heading * 360d / 512d));
-            Scale = new Vector3(1f);
+            var position = VectorTransformer.TranslateVector(door.Position, VT.SwapXandY, VT.SwapYandZ, VT.NegateX); // (Y, Z, X)
+            Transform = Matrix4x4.CreateFromYawPitchRoll(
+                    (float)(door.Heading * 360d / 512d * Math.PI) / 180f,
+                    0f,
+                    (float)(-door.Incline * 360f / 512f * Math.PI) / 180f
+                )
+                * Matrix4x4.CreateTranslation(position);
 
             Type = ObjType.Door;
         }
@@ -1182,21 +1166,17 @@ namespace LanternExtractor.EQ.Wld.Exporters
         private readonly ISet<DataTypes.Polygon> _uniqueTriangles;
         private readonly IDictionary<int, Vector3> _wldVertexIndexToDuplicatedVertexNormals;
         private readonly TriangleVertexSetComparer _triangleSetComparer;
-        private readonly Matrix4x4 _transformMatrix;
+        private readonly VectorTransformer.VectorTranslator<Vector3>[] _vectorTranslators;
         private static readonly Vector4 DefaultVertexColor = new Vector4(0f, 0f, 0f, 1f); // Black
 
-        public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles, bool mirrorXAxis = true, bool mirrorZAxis = false)
+        public WldMeshHelper(Mesh wldMesh, bool separateTwoFacedTriangles, params VectorTransformer.VectorTranslator<Vector3>[] vectorTranslators)
         {
             _wldMesh = wldMesh;
             _separateTwoFacedTriangles = separateTwoFacedTriangles;
             _triangleSetComparer = new TriangleVertexSetComparer();
             _uniqueTriangles = new HashSet<DataTypes.Polygon>(_triangleSetComparer);
             _wldVertexIndexToDuplicatedVertexNormals = new Dictionary<int, Vector3>();
-            _transformMatrix = mirrorXAxis ? Matrix4x4.CreateReflection(new Plane(1, 0, 0, 0)) : Matrix4x4.Identity;
-            if (mirrorZAxis)
-            {
-                _transformMatrix *= Matrix4x4.CreateReflection(new Plane(0, 0, 1, 0));
-            }
+            _vectorTranslators = vectorTranslators;
         }
 
         public DataTypes.Polygon GetTriangle(int triangleIndex)
@@ -1207,9 +1187,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public (Vector3 v0, Vector3 v1, Vector3 v2) GetVertexPositions(DataTypes.Polygon triangle)
         {
             (Vector3 v0, Vector3 v1, Vector3 v2) vertexPositions = (
-            Vector3.Transform((_wldMesh.Vertices[triangle.Vertex1] + _wldMesh.Center).ToVector3(true), _transformMatrix),
-            Vector3.Transform((_wldMesh.Vertices[triangle.Vertex2] + _wldMesh.Center).ToVector3(true), _transformMatrix),
-            Vector3.Transform((_wldMesh.Vertices[triangle.Vertex3] + _wldMesh.Center).ToVector3(true), _transformMatrix));
+                VectorTransformer.TranslateVector(_wldMesh.Vertices[triangle.Vertex1] + _wldMesh.Center, _vectorTranslators),
+                VectorTransformer.TranslateVector(_wldMesh.Vertices[triangle.Vertex2] + _wldMesh.Center, _vectorTranslators),
+                VectorTransformer.TranslateVector(_wldMesh.Vertices[triangle.Vertex3] + _wldMesh.Center, _vectorTranslators));
 
             return vertexPositions;
         }
@@ -1229,9 +1209,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
             }
 
             (Vector3 v0, Vector3 v1, Vector3 v2) vertexNormals = (
-                Vector3.Transform(Vector3.Normalize(_wldMesh.Normals[triangle.Vertex1].ToVector3(true)), _transformMatrix),
-                Vector3.Transform(Vector3.Normalize(_wldMesh.Normals[triangle.Vertex2].ToVector3(true)), _transformMatrix),
-                Vector3.Transform(Vector3.Normalize(_wldMesh.Normals[triangle.Vertex3].ToVector3(true)), _transformMatrix));
+                Vector3.Normalize(VectorTransformer.TranslateVector(_wldMesh.Normals[triangle.Vertex1], _vectorTranslators)),
+                Vector3.Normalize(VectorTransformer.TranslateVector(_wldMesh.Normals[triangle.Vertex2], _vectorTranslators)),
+                Vector3.Normalize(VectorTransformer.TranslateVector(_wldMesh.Normals[triangle.Vertex3], _vectorTranslators)));
 
             return vertexNormals;
         }
@@ -1239,9 +1219,9 @@ namespace LanternExtractor.EQ.Wld.Exporters
         public (Vector2 v0, Vector2 v1, Vector2 v2) GetVertexUvs(DataTypes.Polygon triangle)
         {
             (Vector2 v0, Vector2 v1, Vector2 v2) vertexUvs = (
-                _wldMesh.TextureUvCoordinates[triangle.Vertex1].ToVector2(true),
-                _wldMesh.TextureUvCoordinates[triangle.Vertex2].ToVector2(true),
-                _wldMesh.TextureUvCoordinates[triangle.Vertex3].ToVector2(true));
+                VectorTransformer.TranslateVector(_wldMesh.TextureUvCoordinates[triangle.Vertex1], VT.NegateY),
+                VectorTransformer.TranslateVector(_wldMesh.TextureUvCoordinates[triangle.Vertex2], VT.NegateY),
+                VectorTransformer.TranslateVector(_wldMesh.TextureUvCoordinates[triangle.Vertex3], VT.NegateY));
 
             return vertexUvs;
         }
@@ -1285,15 +1265,18 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex1, out var v0Normal))
             {
-                v0Normal = Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex1].ToVector3(true));
+                v0Normal = Vector3.Normalize(-VectorTransformer.TranslateVector(_wldMesh.Normals[triangle.Vertex1], _vectorTranslators));
+                _wldVertexIndexToDuplicatedVertexNormals.Add(triangle.Vertex1, v0Normal);
             }
             if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex2, out var v1Normal))
             {
-                v1Normal = Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex2].ToVector3(true));
+                v1Normal = Vector3.Normalize(-VectorTransformer.TranslateVector(_wldMesh.Normals[triangle.Vertex2], _vectorTranslators));
+                _wldVertexIndexToDuplicatedVertexNormals.Add(triangle.Vertex2, v1Normal);
             }
             if (!_wldVertexIndexToDuplicatedVertexNormals.TryGetValue(triangle.Vertex3, out var v2Normal))
             {
-                v2Normal = Vector3.Normalize(-_wldMesh.Normals[triangle.Vertex3].ToVector3(true));
+                v2Normal = Vector3.Normalize(-VectorTransformer.TranslateVector(_wldMesh.Normals[triangle.Vertex3], _vectorTranslators));
+                _wldVertexIndexToDuplicatedVertexNormals.Add(triangle.Vertex3, v2Normal);
             }
 
             return (v0Normal, v1Normal, v2Normal);
@@ -1316,11 +1299,11 @@ namespace LanternExtractor.EQ.Wld.Exporters
         {
             if (vertexIndex < objInstanceColors.Count)
             {
-                return objInstanceColors[vertexIndex].ToVector4();
+                return VectorTransformer.TranslateColor(objInstanceColors[vertexIndex]);
             }
             else if (vertexIndex < meshColors.Count)
             {
-                return meshColors[vertexIndex].ToVector4();
+                return VectorTransformer.TranslateColor(meshColors[vertexIndex]);
             }
             else
             {
@@ -1361,7 +1344,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
             var color = lightInstance.LightReference?.LightSource?.Color;
             if (color != null)
             {
-                Color = new Vector3(color.Value.r, color.Value.g, color.Value.b);
+                Color = VectorTransformer.TranslateColorWithoutAlpha(color.Value);
             }
             else
             {
@@ -1380,9 +1363,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
     {
         public static string AddAlphaToImage(string filePath, ShaderType shaderType)
         {
-            // var suffix = $"_{MaterialList.GetMaterialPrefix(shaderType).TrimEnd('_')}";
             var prefix = MaterialList.GetMaterialPrefix(shaderType);
-            // var newFileName = $"{Path.GetFileNameWithoutExtension(filePath)}{suffix}{Path.GetExtension(filePath)}";
             var newFileName = $"{prefix}{Path.GetFileNameWithoutExtension(filePath)}{Path.GetExtension(filePath)}";
             var newFilePath = Path.Combine(Path.GetDirectoryName(filePath), newFileName);
 
@@ -1427,37 +1408,46 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
         private static int FullAlphaToDoubleAlphaThreshold = 64;
     }
-    static class VectorConversionExtensionMethods
+
+    public static class VectorTransformer
     {
-        public static Vector2 ToVector2(this vec2 v2, bool negateY = false)
+        public static Vector2 TranslateVector(vec2 vector, params VectorTranslator<Vector2>[] translators)
         {
-            var y = negateY ? -v2.y : v2.y;
-            return new Vector2(v2.x, y);
+            return TranslateVector(ConvertGlmSharpVector2ToSystemNumeric(vector), translators);
+        }
+        public static Vector3 TranslateVector(vec3 vector, params VectorTranslator<Vector3>[] translators)
+        {
+            return TranslateVector(ConvertGlmSharpVector3ToSystemNumeric(vector), translators);
+        }
+        public static Vector3 Scale(Vector3 v, float scale) { return Vector3.Multiply(v, scale); }
+        public static T TranslateVector<T>(T vector, params VectorTranslator<T>[] translators) where T : struct
+        {
+            T newVector = vector;
+
+            foreach (var translator in translators)
+            {
+                newVector = translator(newVector);
+            }
+
+            return newVector;
         }
 
-        public static Vector3 ToVector3(this vec3 v3, bool swapYandZ = false)
-        {
-            if (swapYandZ)
-            {
-                return new Vector3(v3.x, v3.z, v3.y);
-            }
-            else
-            {
-                return new Vector3(v3.x, v3.y, v3.z);
-            }
-        }
-
-        public static Vector4 ToVector4(this WldColor color)
+        public static Vector4 TranslateColor(WldColor color)
         {
             return new Vector4(color.R, color.G, color.B, color.A);
         }
 
-        public static Vector4 ToVector4(this Color color)
+        public static Vector4 TranslateColor(Color color)
         {
-            return new Vector4(color.R/255.0f, color.G/255.0f, color.B/255.0f, color.A/255.0f);
+            return new Vector4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f);
         }
 
-        public static Vector4 DecodeRgbToLinear(this Vector4 color)
+        public static Vector3 TranslateColorWithoutAlpha(vec4 color)
+        {
+            return new Vector3(color.r, color.g, color.b);
+        }
+
+        public static Vector4 DecodeRgbToLinear(Vector4 color)
         {
             return new Vector4(
                 (float)Math.Pow(color.X, 2.2f),
@@ -1465,7 +1455,21 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 (float)Math.Pow(color.Z, 2.2f),
                 color.W);
         }
+
+        public delegate T VectorTranslator<T>(T vector) where T : struct;
+
+        private static Vector2 ConvertGlmSharpVector2ToSystemNumeric(vec2 eqv) { return new Vector2(eqv.x, eqv.y); }
+        private static Vector3 ConvertGlmSharpVector3ToSystemNumeric(vec3 eqv) { return new Vector3(eqv.x, eqv.y, eqv.z); }
     }
 
-
+    class VT // VectorTranslations
+    {
+        public static Vector2 NegateX(Vector2 v) { return new Vector2(-v.X, v.Y); }
+        public static Vector2 NegateY(Vector2 v) { return new Vector2(v.X, -v.Y); }
+        public static Vector3 NegateX(Vector3 v) { return new Vector3(-v.X, v.Y, v.Z); }
+        public static Vector3 NegateY(Vector3 v) { return new Vector3(v.X, -v.Y, v.Z); }
+        public static Vector3 NegateZ(Vector3 v) { return new Vector3(v.X, v.Y, -v.Z); }
+        public static Vector3 SwapXandY(Vector3 v) { return new Vector3(v.Y, v.X, v.Z); }
+        public static Vector3 SwapYandZ(Vector3 v) { return new Vector3(v.X, v.Z, v.Y); }
+    }
 }

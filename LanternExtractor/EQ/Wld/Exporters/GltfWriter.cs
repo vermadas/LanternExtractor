@@ -190,23 +190,6 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {"wmblade", 105}
         };
 
-        private static readonly ISet<string> AnimatedMeshesSharpGltfWillNotExportMorphTargets = new HashSet<string>()
-        {
-            "cmplant101",
-            "cmplant102",
-            "drgrass101",
-            "drgrass102",
-            "jnplant101",
-            "otplant101",
-            "otplant101b",
-            "otplant101c",
-            "otplant102",
-            "otplant102b",
-            "otplant102c",
-            "otplant103",
-            "otplant103b",
-            "otplant103c"
-        };
         private readonly float ZoneScaleMultiplier;
         private readonly Matrix4x4 CorrectedWorldMatrix;
         #endregion
@@ -362,13 +345,13 @@ namespace LanternExtractor.EQ.Wld.Exporters
             {
                 if (_combinedMeshBuilder == null)
                 {
-                    _combinedMeshBuilder = InstantiateMeshBuilder(meshName, isSkinned, canExportVertexColors);
+                    _combinedMeshBuilder = InstantiateMeshBuilder(meshName, isSkinned, canExportVertexColors, mesh.AnimatedVerticesReference != null);
                 }
                 gltfMesh = _combinedMeshBuilder;
             }
             else
             {
-                gltfMesh = InstantiateMeshBuilder(meshName, isSkinned, canExportVertexColors);
+                gltfMesh = InstantiateMeshBuilder(meshName, isSkinned, canExportVertexColors, mesh.AnimatedVerticesReference != null);
             }
 
             // Keeping track of vertex indexes for each vertex position in case it's an
@@ -448,8 +431,7 @@ namespace LanternExtractor.EQ.Wld.Exporters
 
             if (generationMode == ModelGenerationMode.Separate)
             {
-                if (mesh.AnimatedVerticesReference != null &&
-                        !AnimatedMeshesSharpGltfWillNotExportMorphTargets.Contains(FragmentNameCleaner.CleanName(mesh, true)))
+                if (mesh.AnimatedVerticesReference != null)
                 {
                     AddAnimatedMeshMorphTargets(mesh, gltfMesh, meshName, transformMatrix, gltfVertexPositionToWldVertexIndex, isZoneMesh);
                     // mesh added to scene in ^ method
@@ -923,14 +905,38 @@ namespace LanternExtractor.EQ.Wld.Exporters
                 .WithAlpha(AlphaMode.MASK);
         }
 
-        private IMeshBuilder<MaterialBuilder> InstantiateMeshBuilder(string meshName, bool isSkinned = false, bool canExportVertexColors = false)
+        private IMeshBuilder<MaterialBuilder> InstantiateMeshBuilder(string meshName, bool isSkinned = false, bool canExportVertexColors = false, bool hasAnimatedVertices = false)
         {
             var meshBuilderType = typeof(MeshBuilder<,,>).MakeGenericType(
                 typeof(VertexPositionNormal),
                 canExportVertexColors ? typeof(VertexColor1Texture1) : typeof(VertexTexture1),
                 isSkinned ? typeof(VertexJoints4) : typeof(VertexEmpty));
 
-            return (IMeshBuilder<MaterialBuilder>) Activator.CreateInstance(meshBuilderType, meshName);
+            // BEGIN workaround for SharpGLTF morphing bug until fixed in nuget package - https://github.com/vpenades/SharpGLTF/issues/243
+
+            var meshBuilder = (IMeshBuilder<MaterialBuilder>)Activator.CreateInstance(meshBuilderType, meshName);
+
+            if (!hasAnimatedVertices) return meshBuilder;
+
+            if (!isSkinned && !canExportVertexColors)
+            {
+                ((MeshBuilder<VertexPositionNormal, VertexTexture1, VertexEmpty>)meshBuilder).VertexPreprocessor.Clear();
+            }
+            else if (!isSkinned && canExportVertexColors)
+            {
+                ((MeshBuilder<VertexPositionNormal, VertexColor1Texture1, VertexEmpty>)meshBuilder).VertexPreprocessor.Clear();
+            }
+            else if (isSkinned && !canExportVertexColors)
+            {
+                ((MeshBuilder<VertexPositionNormal, VertexTexture1, VertexJoints4>)meshBuilder).VertexPreprocessor.Clear();
+            }
+            else
+            {
+                ((MeshBuilder<VertexPositionNormal, VertexColor1Texture1, VertexJoints4>)meshBuilder).VertexPreprocessor.Clear();
+            }
+            // END workaround
+
+            return meshBuilder;
         }
 
         private IDictionary<VertexPositionNormal,int> AddTriangleToMesh<TvG, TvM, TvS>(
